@@ -25,8 +25,10 @@
 <div class="veil" id="veil"><div class="card"><div class="eyebrow">A PIXEL ART ADVENTURE</div><h1 class="title">EMBER<em>WAKE</em></h1><p class="intro">The sun has dimmed. A demon king stirs beyond the Ashen Keep. Wander a living frontier, gather the lost seals, and carry the last light into the dark.</p><button class="start" id="start">BEGIN YOUR QUEST</button><div class="foot"><span class="touch-tip">TOUCH CONTROLS READY · LANDSCAPE RECOMMENDED<br></span>MOVE · EXPLORE · FIGHT · BECOME THE LIGHT</div></div></div>
 </main>
 <script>
-const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.setTransform(2,0,0,2,0,0); // 960×540 backing store; 32-bit RGBA color, drawn on a crisp 480×270 pixel grid.
-const W=480,H=270,T=16,MW=104,MH=64,world={};
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=480,T=16,MW=104,MH=64,world={};let H=270;
+function resizeScene(){const portrait=matchMedia('(orientation: portrait) and (max-width: 760px)').matches;H=portrait?Math.min(MH*T,Math.max(270,Math.round(W*innerHeight/innerWidth))):270;canvas.width=W*2;canvas.height=H*2;ctx.imageSmoothingEnabled=false;ctx.setTransform(2,0,0,2,0,0)}
+resizeScene();window.addEventListener('resize',resizeScene);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function hash(x,y){let n=Math.imul(x,374761393)+Math.imul(y,668265263)|0;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967295}
 function biome(x){return x<24?0:x<48?1:x<72?2:3}
@@ -54,9 +56,9 @@ function tile(x,y){const b=biome(x),pal=colors[b],r=hash(x,y),d=hash(x*17+31,y*2
 }
 function tree(x,y,kind=0){let sx=x-camera.x,sy=y-camera.y;rect(sx-7,sy-2,14,5,'#18262a');rect(sx-2,sy-17,5,16,kind===3?'#604b42':'#594b36');let top=kind===1?'#264a3c':kind===3?'#613d3b':'#3e6542';rect(sx-9,sy-24,18,16,top);rect(sx-7,sy-29,14,10,kind===1?'#31583f':kind===3?'#70433a':'#50774a');rect(sx-5,sy-25,5,4,kind===3?'#c86c70':'#83b260');rect(sx+2,sy-19,4,3,kind===3?'#e98a77':'#a3c771');rect(sx-3,sy-22,2,2,'#d7e49a')}
 function rock(x,y,variant=0){let sx=x-camera.x,sy=y-camera.y;rect(sx-6,sy-2,12,5,'#33343a');rect(sx-5,sy-7,10,6,variant?'#77766d':'#777466');rect(sx-2,sy-10,5,4,variant?'#918b78':'#898371');rect(sx-3,sy-7,3,2,'#b3a78a')}
-function drawGround(){let x0=Math.floor(camera.x/T),y0=Math.floor(camera.y/T),x1=x0+31,y1=y0+18;for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){tile(x,y);if(y>=31&&y<=32)rect(x*T-camera.x,y*T-camera.y,T,T,biome(x)<2?'#806c52':biome(x)===2?'#8a8069':'#7b554a');if(x>=23&&x<=24&&y>29&&y<35)rect(x*T-camera.x,y*T-camera.y,T,T,'#827057')}}
+function drawGround(){let x0=Math.floor(camera.x/T),y0=Math.floor(camera.y/T),x1=x0+31,y1=y0+Math.ceil(H/T)+1;for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){tile(x,y);if(y>=31&&y<=32)rect(x*T-camera.x,y*T-camera.y,T,T,biome(x)<2?'#806c52':biome(x)===2?'#8a8069':'#7b554a');if(x>=23&&x<=24&&y>29&&y<35)rect(x*T-camera.x,y*T-camera.y,T,T,'#827057')}}
 function drawProps(){let x0=Math.floor(camera.x/T)-1,y0=Math.floor(camera.y/T)-2;
- for(let y=y0;y<y0+22;y++)for(let x=x0;x<x0+34;x++){if(x<1||x>=MW-1||y<1||y>=MH-1)continue;let r=hash(x*11+8,y*23-4);let b=biome(x);let skip=(y>=30&&y<=34)||(x>=17&&x<=21&&y>=29&&y<=35)||(x>=40&&x<=44&&y>=23&&y<=29)||(x>=60&&x<=64&&y>=34&&y<=40)||(x>=87&&x<=94&&y>=28&&y<=36);
+ for(let y=y0;y<y0+Math.ceil(H/T)+4;y++)for(let x=x0;x<x0+34;x++){if(x<1||x>=MW-1||y<1||y>=MH-1)continue;let r=hash(x*11+8,y*23-4);let b=biome(x);let skip=(y>=30&&y<=34)||(x>=17&&x<=21&&y>=29&&y<=35)||(x>=40&&x<=44&&y>=23&&y<=29)||(x>=60&&x<=64&&y>=34&&y<=40)||(x>=87&&x<=94&&y>=28&&y<=36);
  if(skip)continue;if(r>(b===1?.83:.9)){let px=x*T+8,py=y*T+11;tree(px,py,b)}else if(r>.985){rock(x*T+8,y*T+11,b===2?1:0)}}
  // scenic pools
  for(const p of [[11,18,3,2],[32,46,3,2],[56,15,3,2],[77,19,3,2]]){let [x,y,w,h]=p,sx=x*T-camera.x,sy=y*T-camera.y;for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){let rr=hash(x+xx,y+yy);rect(sx+xx*T,sy+yy*T,T,T,biome(x)===3?'#573d43':'#355c68');rect(sx+xx*T+3,sy+yy*T+5,4,1,biome(x)===3?'#a16a55':'#669293');if(rr>.7)rect(sx+xx*T+10,sy+yy*T+10,3,2,'#416c72')}}
