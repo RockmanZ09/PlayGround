@@ -1,22 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Whisperwood Quest</title>
+  <style>
+    :root {
+      --bg: #0f1d16;
+      --panel: rgba(18, 32, 26, 0.88);
+      --panel-strong: rgba(12, 22, 17, 0.96);
+      --green: #9bd77a;
+      --green-deep: #3d6d42;
+      --amber: #f7d77b;
+      --rose: #ff7d7d;
+      --ice: #c8f0ff;
+      --text: #edf5ef;
+      --muted: #b8d0bf;
+      --shadow: rgba(0,0,0,0.3);
+      --hud-height: 120px;
+    }
 
-function blocked(x,y){if(x<20||x>940||y<30||y>520)return true;for(const o of obstacles){const left=o.x-10,right=o.x+o.w+10,top=o.y+o.h*.63,bottom=o.y+o.h+4;if(x>left&&x<right&&y>top&&y<bottom)return true}if(Math.hypot(x-281,y-347)<58)return true;return false}
-function move(dt){if(!started||Object.values(overlays).some(o=>!o.classList.contains('hidden')))return;let dx=0,dy=0;if(keys.ArrowUp||keys.w||keys.W)dy--;if(keys.ArrowDown||keys.s||keys.S)dy++;if(keys.ArrowLeft||keys.a||keys.A)dx--;if(keys.ArrowRight||keys.d||keys.D)dx++;if(!dx&&!dy)return;if(dx&&dy){dx*=.707;dy*=.707}const speed=145*dt;const nx=hero.x+dx*speed,ny=hero.y+dy*speed;if(!blocked(nx,hero.y))hero.x=nx;if(!blocked(hero.x,ny))hero.y=ny;if(Math.abs(dx)>Math.abs(dy))hero.facing=dx>0?'right':'left';else hero.facing=dy>0?'down':'up'}
-function act(){if(!started)return;const t=nearby();if(!t){showToast('Nothing nearby — take a little stroll.');return}if(t.type==='elder'){if(questStage===0){dialogTarget='elder';openDialog('Elder Rowan','Ah, a new face! Those moonleaf-chewing slimes have wandered into my glade. Could you shoo them away? I have a little something for your trouble.',[['I’ll help!','acceptQuest'],['Maybe later','closeDialog']])}else if(questStage===1){showToast('The elder smiles. “Those slimes are still out there!”')}else if(questStage===2){dialogTarget='reward';openDialog('Elder Rowan','Splendid work! The moonleaf is safe again. Please, take these coins — and the forest’s gratitude.',[['Thank you, Elder','finishQuest']])}else openDialog('Elder Rowan','The forest feels brighter already. There are always more little wonders beyond the path.',[['Lovely.','closeDialog']])}
-else if(t.type==='chest'){if(chest.open){showToast('Only a cozy, empty chest now.');return}chest.open=true;hero.gold+=8;hero.inventory['🪙']=(hero.inventory['🪙']||12)+8;hero.inventory['🌿']=1;showToast('Found 8 gold and a sprig of moonleaf!');updateHeroUI();renderInventory()}
-else if(t.type==='slime'){attack(t.i)}}
-function attack(i){const s=slimes[i];if(!s||!s.alive)return;attackTimer=.25;s.hp--;hero.facing=s.x>hero.x?'right':'left';if(s.hp<=0){s.alive=false;hero.xp+=5;hero.gold+=2;hero.inventory['🪙']=(hero.inventory['🪙']||0)+2;showToast('Slime shooed away! +2 gold · +5 XP');if(questStage===1&&slimes.every(x=>!x.alive)){questStage=2;showToast('The glade is clear! Return to Elder Rowan.')}updateHeroUI();renderInventory()}else showToast('Boop! One more hit should do it.')}
-function openDialog(title,text,actions){$('dialogTitle').textContent=title;$('dialogText').textContent=text;const el=$('dialogActions');el.innerHTML='';actions.forEach(([label,action])=>{const b=document.createElement('button');b.className='btn '+(el.children.length===0?'primary':'ghost');b.textContent=label;b.onclick=()=>dialogAction(action);el.appendChild(b)});openOverlay('dialog')}
-function dialogAction(action){if(action==='acceptQuest'){questStage=1;openOverlay(null);showToast('Quest accepted: clear the glade!');updateHeroUI()}else if(action==='finishQuest'){questStage=3;hero.gold+=20;hero.inventory['🪙']=(hero.inventory['🪙']||0)+20;openOverlay(null);showToast('Quest complete! +20 gold');updateHeroUI()}else openOverlay(null)}
-function renderInventory(){const grid=$('itemGrid');grid.innerHTML='';items.forEach(item=>{const count=hero.inventory[item.emoji]||0;const slot=document.createElement('button');slot.className='slot'+(selectedItem===item.emoji?' selected':'');slot.setAttribute('aria-label',item.name+', '+count);slot.innerHTML=`${item.emoji}<span class="count">${count||''}</span>`;slot.onclick=()=>{selectedItem=item.emoji;showItem(item);renderInventory()};grid.appendChild(slot)});$('goldCount').textContent=`· ${hero.gold} gold`}
-function showItem(item){$('itemInfo').innerHTML=`<div class="item-emoji">${item.emoji}</div><h3>${item.name}</h3><p>${item.desc}</p>`;if(item.type==='heal'||item.type==='potion'){const b=document.createElement('button');b.className='btn primary';b.textContent=hero.inventory[item.emoji]?'Use item':'None left';b.disabled=!hero.inventory[item.emoji];b.onclick=()=>useItem(item);$('itemInfo').appendChild(b)}}
-function useItem(item){if(!hero.inventory[item.emoji])return;if(hero.hp===hero.maxHp){showToast('Your hearts are already full!');return}const heal=item.type==='heal'?6:10;hero.hp=Math.min(hero.maxHp,hero.hp+heal);hero.inventory[item.emoji]--;updateHeroUI();renderInventory();showToast(`A little better. +${heal} hearts!`)}
-function save(){const data={...hero,questStage,chestOpen:chest.open,slimes:slimes.map(s=>({hp:s.hp,alive:s.alive}))};try{localStorage.setItem('whisperwood-save',JSON.stringify(data));showToast('Journey saved safely in this browser.')}catch{showToast('Could not save — browser storage is unavailable.')}}
-function load(){let data;try{data=JSON.parse(localStorage.getItem('whisperwood-save'))}catch{}if(!data){showToast('No saved journey found yet.');return false}Object.assign(hero,{name:data.name||'Rowan',role:data.role||'Ranger',color:data.color||'#8ac27c',x:data.x||478,y:data.y||325,hp:data.hp||20,maxHp:data.maxHp||20,gold:data.gold||0,level:data.level||1,xp:data.xp||0,inventory:data.inventory||{'🍎':3,'🧪':1,'🪵':2,'🪙':12}});questStage=data.questStage||0;chest.open=!!data.chestOpen;if(Array.isArray(data.slimes))data.slimes.forEach((s,i)=>{if(slimes[i])Object.assign(slimes[i],s)});started=true;updateHeroUI();showToast('Welcome back, '+hero.name+'.');openOverlay(null);return true}
-$('newGame').onclick=()=>openOverlay('creator');$('continueGame').onclick=()=>{if(!load())openOverlay('creator')};$('creatorBack').onclick=()=>openOverlay('start');$('createHero').onclick=()=>{hero.name=$('nameInput').value.trim()||'Rowan';hero.role=document.querySelector('#classChoices .selected').dataset.class;hero.color=document.querySelector('#colorChoices .selected').dataset.color;hero.x=478;hero.y=325;hero.hp=20;hero.gold=12;hero.level=1;hero.xp=0;hero.inventory={'🍎':3,'🧪':1,'🪵':2,'🪙':12};questStage=0;chest.open=false;slimes.forEach(s=>{s.hp=3;s.alive=true});started=true;updateHeroUI();openOverlay(null);showToast('A new adventure begins, '+hero.name+'!')};
-document.querySelectorAll('#classChoices .choice').forEach(b=>b.onclick=()=>{document.querySelectorAll('#classChoices .choice').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');$('previewSprite').textContent=spriteFor(b.dataset.class)});document.querySelectorAll('#colorChoices .swatch').forEach(b=>b.onclick=()=>{document.querySelectorAll('#colorChoices .swatch').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');$('preview').style.background=`radial-gradient(ellipse,${b.dataset.color}99,#344e3a 65%,#26372d)`});
-$('invBtn').onclick=()=>{renderInventory();showItem(items.find(i=>i.emoji===selectedItem)||items[0]);openOverlay('inventory')};$('closeInventory').onclick=()=>openOverlay(null);$('inventorySave').onclick=save;$('saveTop').onclick=save;$('loadTop').onclick=()=>{if(!load())showToast('No saved journey found yet.')};$('interactBtn').onclick=act;$('touchInteract').onclick=act;$('touchAttack').onclick=()=>{const t=nearby();if(t?.type==='slime')attack(t.i);else act()};$('closeInventory').onclick=()=>openOverlay(null);
-window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();if(e.key==='Escape'){if(!overlays.inventory.classList.contains('hidden')||!overlays.dialog.classList.contains('hidden'))openOverlay(null);else if(started)save();return}if((e.key==='i'||e.key==='I')&&started){if(overlays.inventory.classList.contains('hidden'))$('invBtn').click();else openOverlay(null);return}if(e.key==='e'||e.key==='E'||e.key==='Enter'){if(!overlays.dialog.classList.contains('hidden')){const b=$('dialogActions').querySelector('button');if(b)b.click()}else if(overlays.start.classList.contains('hidden')&&overlays.creator.classList.contains('hidden')&&overlays.inventory.classList.contains('hidden'))act();return}if(e.code==='Space'){const t=nearby();if(t?.type==='slime')attack(t.i);else act();return}keys[e.key]=true});window.addEventListener('keyup',e=>keys[e.key]=false);window.addEventListener('blur',()=>keys={});document.querySelectorAll('[data-dir]').forEach(b=>{const dir=b.dataset.dir,down=e=>{e.preventDefault();keys[{up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight'}[dir]]=true},up=e=>{e.preventDefault();keys[{up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight'}[dir]]=false};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointerleave',up);b.addEventListener('pointercancel',up)});
-function frame(ts){const dt=Math.min(.04,(ts-lastTime)/1000||0);lastTime=ts;elapsed+=dt;move(dt);if(attackTimer>0)attackTimer-=dt;draw();requestAnimationFrame(frame)}
-updateHeroUI();renderInventory();requestAnimationFrame(frame);
-})();
-</script></body></html>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: radial-gradient(circle at top, #1f3a2a, #0b1411 58%);
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 12px;
+    }
+
+    #gameShell {
+      position: relative;
+      width: min(96vw, 1020px);
+      height: min(92vh, 660px);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 28px 55px rgba(0,0,0,0.45);
+      border: 2px solid rgba(255,255,255,0.12);
+      background: #15271d;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(#1d392d, #0f1e18 70%);
+      image-rendering: auto;
+    }
+
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--hud-height);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      padding: 12px 14px 0;
+      background: linear-gradient(to bottom, rgba(12,18,14,0.7), rgba(12,18,14,0));
+    }
+
+    .hud-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(8,18,13,0.42);
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      backdrop-filter: blur(4px);
+    }
+
+    #heroBadge {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    #heroPortrait {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    #statStack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 190px;
+    }
+
+    .statBar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .meter {
+      position: relative;
+      width: 110px;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .meter > span {
+      position: absolute;
+      inset: 0 auto 0 0;
+      display: block;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #ff7c7c, #ffd76b, #83e88e);
+    }
+
+    #questInfo {
+      max-width: 320px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text);
+      background: rgba(11, 20, 16, 0.54);
+      border-radius: 12px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    #toast {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(10px);
+      background: rgba(14,19,15,0.92);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 14px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      white-space: nowrap;
+    }
+
+    #toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      background: rgba(9, 13, 12, 0.6);
+      backdrop-filter: blur(6px);
+      z-index: 3;
+    }
+
+    .overlay.show {
+      display: grid;
+      place-items: center;
+    }
+
+    .panel {
+      width: min(90%, 580px);
+      background: rgba(8, 17, 12, 0.9);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 22px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.38);
+      padding: 24px 24px 18px;
+    }
+
+    .panel h1, .panel h2 {
+      margin: 0 0 18px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .panel h1 {
+      font-size: clamp(2rem, 4vw, 3rem);
+    }
+
+    .panel p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      background: linear-gradient(180deg, #2f6a4d, #1d4a38);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 16px rgba(0,0,0,0.22);
+      transition: transform 0.12s ease, filter 0.12s ease;
+      font: inherit;
+    }
+
+    button:hover { filter: brightness(1.07); }
+    button:active { transform: translateY(1px); }
+
+    .btn {
+      padding: 11px 16px;
+      min-width: 120px;
+      font-weight: 700;
+    }
+
+    .btn.secondary {
+      background: linear-gradient(180deg, #3e4658, #2c3447);
+    }
+
+    .btn.warning {
+      background: linear-gradient(180deg, #a15e28, #734919);
+    }
+
+    .btn.ghost {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: none;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .choice-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .choice-box h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .choice-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .choice {
+      flex: 1;
+      min-width: 84px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .choice.active {
+      background: linear-gradient(180deg, #2d6d59, #1e4e3d);
+      border-color: rgba(155, 215, 122, 0.7);
+    }
+
+    .swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.15);
+      box-shadow: none;
+      padding: 0;
+    }
+
+    .swatch.active {
+      border-color: white;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+    }
+
+    #preview {
+      width: 90px;
+      height: 90px;
+      margin: 10px auto 0;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, #8bcF80, #2b5a3b 60%, #1b2d22 100%);
+      display: grid;
+      place-items: center;
+      font-size: 44px;
+      border: 2px solid rgba(255,255,255,0.12);
+    }
+
+    .inventory-panel {
+      position: absolute;
+      right: 14px;
+      top: calc(var(--hud-height) + 14px);
+      width: min(350px, calc(100% - 28px));
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(8,17,12,0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 15px 30px rgba(0,0,0,0.28);
+      display: none;
+      z-index: 4;
+    }
+
+    .inventory-panel.show {
+      display: block;
+    }
+
+    .inventory-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      color: var(--text);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+    }
+
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .slot {
+      position: relative;
+      min-height: 62px;
+      padding: 8px 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slot.selected {
+      border-color: rgba(155, 215, 122, 0.8);
+      background: rgba(120, 205, 123, 0.1);
+    }
+
+    .slot .count {
+      position: absolute;
+      right: 5px;
+      bottom: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--amber);
+    }
+
+    .item-detail {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .item-emoji {
+      font-size: 42px;
+      display: grid;
+      place-items: center;
+      min-height: 56px;
+    }
+
+    .item-name {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .item-desc {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .mini-controls {
+      position: absolute;
+      left: 18px;
+      bottom: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 2;
+      pointer-events: auto;
+    }
+
+    .control-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 38px);
+      grid-template-rows: repeat(3, 38px);
+      gap: 4px;
+      background: rgba(8,18,13,0.36);
+      padding: 6px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .pad-btn {
+      min-width: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 16px;
+      color: var(--text);
+      padding: 0;
+      box-shadow: none;
+    }
+
+    .pad-btn.up { grid-column: 2; grid-row: 1; }
+    .pad-btn.left { grid-column: 1; grid-row: 2; }
+    .pad-btn.right { grid-column: 3; grid-row: 2; }
+    .pad-btn.down { grid-column: 2; grid-row: 3; }
+
+    .action-cluster {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .small-btn {
+      width: 90px;
+      min-width: 0;
+      padding: 10px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    #actionPanel {
+      display: none;
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      z-index: 2;
+      gap: 8px;
+      flex-direction: column;
+      pointer-events: auto;
+    }
+
+    #actionPanel.show {
+      display: flex;
+    }
+
+    @media (max-width: 760px) {
+      #gameShell {
+        width: min(100vw - 8px, 760px);
+        height: min(100vh - 14px, 760px);
+      }
+
+      #questInfo {
+        display: none;
+      }
+
+      #hud {
+        height: 92px;
+      }
+
+      #statStack {
+        min-width: 0;
+      }
+
+      .meter { width: 90px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameShell">
+    <canvas id="game" width="960" height="560"></canvas>
+
+    <div id="hud">
+      <div class="hud-block">
+        <div id="heroPortrait">🧑</div>
+        <div id="heroBadge">Rowan</div>
+      </div>
+
+      <div id="statStack">
+        <div class="statBar">
+          <span>HP</span>
+          <div class="meter"><span id="hpFill" style="width:100%"></span></div>
+          <span id="hpText">20 / 20</span>
+        </div>
+        <div class="statBar">
+          <span>XP</span>
+          <div class="meter"><span id="xpFill" style="width:0%"></span></div>
+          <span id="xpText">0</span>
+        </div>
+      </div>
+
+      <div id="questInfo">The glade is calm, but the moonleaf still has secrets to share.</div>
+    </div>
+
+    <div id="toast">A new adventure begins.</div>
+
+    <div id="inventoryPanel" class="inventory-panel">
+      <div class="inventory-header">
+        <span>Inventory</span>
+        <button id="closeInventoryBtn" class="btn ghost">Close</button>
+      </div>
+      <div id="inventoryGrid" class="inventory-grid"></div>
+      <div id="itemDetail" class="item-detail"></div>
+    </div>
+
+    <div class="mini-controls">
+      <div class="control-pad" aria-label="Movement controls">
+        <button class="pad-btn up" data-dir="up">▲</button>
+        <button class="pad-btn left" data-dir="left">◀</button>
+        <button class="pad-btn right" data-dir="right">▶</button>
+        <button class="pad-btn down" data-dir="down">▼</button>
+      </div>
+    </div>
+
+    <div id="actionPanel" class="action-cluster">
+      <button id="touchInteract" class="small-btn">Talk</button>
+      <button id="touchAttack" class="small-btn warning">Hit</button>
+      <button id="touchInventory" class="small-btn secondary">Bag</button>
+      <button id="touchSave" class="small-btn secondary">Save</button>
+    </div>
+
+    <div id="startOverlay" class="overlay show">
+      <div class="panel">
+        <h1>Whisperwood</h1>
+        <p>Moonleaf smoke drifts through the glade. The elder needs help, the slimes are restless, and a hidden chest waits among the roots.</p>
+        <p>Wander the forest, clear the threat, and return with the forest’s blessing.</p>
+        <p><strong>Controls:</strong> move with WASD or arrow keys; press E to talk/open, Space to attack, I for your bag, and Esc to save.</p>
+        <div class="button-row">
+          <button id="newGameBtn" class="btn">New Adventure</button>
+          <button id="continueGameBtn" class="btn secondary">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="creatorOverlay" class="overlay">
+      <div class="panel">
+        <h2>Build Your Ranger</h2>
+        <div class="meta-grid">
+          <div class="choice-box">
+            <h3>Class</h3>
+            <div class="choice-row" id="classChoices">
+              <button class="choice active" data-class="Warden">Warden</button>
+              <button class="choice" data-class="Scout">Scout</button>
+              <button class="choice" data-class="Mage">Mage</button>
+            </div>
+          </div>
+          <div class="choice-box">
+            <h3>Colors</h3>
+            <div class="choice-row" id="colorChoices">
+              <button class="swatch active" data-color="#8bcf80" style="background:#8bcf80"></button>
+              <button class="swatch" data-color="#7ec0ff" style="background:#7ec0ff"></button>
+              <button class="swatch" data-color="#f0d07a" style="background:#f0d07a"></button>
+              <button class="swatch" data-color="#f39ad0" style="background:#f39ad0"></button>
+            </div>
+          </div>
+        </div>
+
+        <div id="preview" aria-live="polite">🧑</div>
+
+        <div class="button-row" style="justify-content:space-between; align-items:center; margin-top:18px;">
+          <button id="backToStartBtn" class="btn secondary">Back</button>
+          <button id="createHeroBtn" class="btn">Start Quest</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const hud = {
+      heroBadge: document.getElementById('heroBadge'),
+      heroPortrait: document.getElementById('heroPortrait'),
+      hpFill: document.getElementById('hpFill'),
+      hpText: document.getElementById('hpText'),
+      xpFill: document.getElementById('xpFill'),
+      xpText: document.getElementById('xpText'),
+      questInfo: document.getElementById('questInfo'),
+      toast: document.getElementById('toast'),
+      inventoryPanel: document.getElementById('inventoryPanel'),
+      inventoryGrid: document.getElementById('inventoryGrid'),
+      itemDetail: document.getElementById('itemDetail')
+    };
+
+    const world = { w: 960, h: 560, background: '#1c332a', border: '#203c31' };
+    const keys = {};
+    let lastTime = 0;
+    let started = false;
+    let attackTimer = 0;
+    let toastTimer = 0;
+    let selectedItem = '🍎';
+    let saveReady = true;
+
+    const itemsCatalog = [
+      { emoji: '🍎', name: 'Apple', type: 'heal', desc: 'A plain apple. Restores 6 hearts.' },
+      { emoji: '🧪', name: 'Moon Potion', type: 'potion', desc: 'Restores 10 hearts in a quick sip.' },
+      { emoji: '🌿', name: 'Moonleaf', type: 'quest', desc: 'A rare herb the elder values deeply.' },
+      { emoji: '🪵', name: 'Forest Wood', type: 'resource', desc: 'Useful firewood from the glade path.' },
+      { emoji: '🪙', name: 'Gold', type: 'currency', desc: 'Coins for trade and rewards.' }
+    ];
+
+    const heroDefaults = {
+      name: 'Rowan',
+      role: 'Warden',
+      color: '#8bcf80',
+      x: 120,
+      y: 400,
+      hp: 20,
+      maxHp: 20,
+      gold: 12,
+      level: 1,
+      xp: 0,
+      inventory: { '🍎': 2, '🧪': 1, '🪵': 2, '🪙': 12 },
+      facing: 'right'
+    };
+
+    const hero = { ...heroDefaults };
+    const elder = { x: 510, y: 430, r: 20 };
+    const chest = { x: 820, y: 220, r: 18, open: false };
+    const obstacles = [
+      { x: 80, y: 120, w: 120, h: 56 },
+      { x: 270, y: 90, w: 124, h: 66 },
+      { x: 700, y: 120, w: 130, h: 62 },
+      { x: 330, y: 360, w: 120, h: 80 },
+      { x: 610, y: 310, w: 150, h: 88 },
+      { x: 120, y: 250, w: 80, h: 82 }
+    ];
+    const slimes = [
+      { x: 290, y: 220, r: 18, hp: 3, alive: true },
+      { x: 620, y: 200, r: 18, hp: 3, alive: true },
+      { x: 760, y: 390, r: 18, hp: 3, alive: true },
+      { x: 420, y: 260, r: 18, hp: 3, alive: true }
+    ];
+    let questStage = 0;
+    let activeDialog = null;
+
+    function $(id) { return document.getElementById(id); }
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function showToast(message) {
+      hud.toast.textContent = message;
+      hud.toast.classList.add('visible');
+      toastTimer = 2.2;
+    }
+
+    function updateQuestText() {
+      let text = 'The glade is calm, but the moonleaf still has secrets to share.';
+      if (questStage === 0) text = 'Talk to Elder Rowan and learn what the slimes are doing in the glade.';
+      if (questStage === 1) text = 'Clear the slime threat from the glade. The elder is waiting for a safe return.';
+      if (questStage === 2) text = 'The slimes are gone. Return to Elder Rowan for the reward.';
+      if (questStage === 3) text = 'The moonleaf is safe, the forest is grateful, and the path is open.';
+      hud.questInfo.textContent = text;
+    }
+
+    function updateHeroUI() {
+      const portrait = hero.role === 'Scout' ? '🧭' : hero.role === 'Mage' ? '✨' : '🧑';
+      hud.heroPortrait.textContent = portrait;
+      hud.heroBadge.textContent = `${hero.name} · ${hero.role}`;
+      hud.hpFill.style.width = `${(hero.hp / hero.maxHp) * 100}%`;
+      hud.hpText.textContent = `${hero.hp} / ${hero.maxHp}`;
+      const xpPercent = clamp((hero.xp / (hero.level * 20)) * 100, 0, 100);
+      hud.xpFill.style.width = `${xpPercent}%`;
+      hud.xpText.textContent = `${hero.xp} XP`;
+      updateQuestText();
+    }
+
+    function showOverlay(id) {
+      const start = $('startOverlay');
+      const creator = $('creatorOverlay');
+      start.classList.toggle('show', id === 'start');
+      creator.classList.toggle('show', id === 'creator');
+    }
+
+    function enterWorld() {
+      showOverlay(null);
+      $('actionPanel').classList.add('show');
+    }
+
+    function openInventory() {
+      renderInventory();
+      hud.inventoryPanel.classList.add('show');
+    }
+
+    function closeInventory() {
+      hud.inventoryPanel.classList.remove('show');
+    }
+
+    function renderInventory() {
+      hud.inventoryGrid.innerHTML = '';
+      const items = itemsCatalog.filter(item => item.type !== 'currency' || (hero.inventory[item.emoji] || 0) > 0);
+      items.forEach(item => {
+        const count = hero.inventory[item.emoji] || 0;
+        const slot = document.createElement('button');
+        slot.className = 'slot' + (selectedItem === item.emoji ? ' selected' : '');
+        slot.innerHTML = `${item.emoji}<span class="count">${count || ''}</span>`;
+        slot.setAttribute('aria-label', `${item.name} ${count}`);
+        slot.onclick = () => {
+          selectedItem = item.emoji;
+          showInventoryDetails(item);
+          renderInventory();
+        };
+        hud.inventoryGrid.appendChild(slot);
+      });
+
+      const item = items.find(entry => entry.emoji === selectedItem) || items[0] || itemsCatalog[0];
+      if (item) {
+        showInventoryDetails(item);
+      }
+    }
+
+    function showInventoryDetails(item) {
+      const count = hero.inventory[item.emoji] || 0;
+      hud.itemDetail.innerHTML = `
+        <div class="item-emoji">${item.emoji}</div>
+        <div class="item-name">${item.name}${count ? ` × ${count}` : ''}</div>
+        <div class="item-desc">${item.desc}</div>
+      `;
+
+      if (item.type === 'heal' || item.type === 'potion') {
+        const useBtn = document.createElement('button');
+        useBtn.className = 'btn';
+        useBtn.textContent = count ? 'Use Item' : 'None Left';
+        useBtn.disabled = !count;
+        useBtn.onclick = () => useItem(item);
+        hud.itemDetail.appendChild(useBtn);
+      }
+    }
+
+    function useItem(item) {
+      if (!hero.inventory[item.emoji]) {
+        showToast('You do not have that item.');
+        return;
+      }
+      if (hero.hp >= hero.maxHp) {
+        showToast('Your hearts are already full.');
+        return;
+      }
+
+      const healAmount = item.type === 'heal' ? 6 : 10;
+      hero.hp = Math.min(hero.maxHp, hero.hp + healAmount);
+      hero.inventory[item.emoji] = Math.max(0, (hero.inventory[item.emoji] || 0) - 1);
+      updateHeroUI();
+      renderInventory();
+      showToast(`You feel better. +${healAmount} hearts.`);
+    }
+
+    function saveGame() {
+      const data = {
+        hero: { ...hero, inventory: { ...hero.inventory } },
+        questStage,
+        chestOpen: chest.open,
+        slimes: slimes.map(slime => ({ hp: slime.hp, alive: slime.alive, x: slime.x, y: slime.y }))
+      };
+      try {
+        localStorage.setItem('whisperwood-save', JSON.stringify(data));
+        showToast('Journey saved.');
+      } catch (error) {
+        console.error(error);
+        showToast('Save failed.');
+      }
+    }
+
+    function loadGame() {
+      try {
+        const raw = localStorage.getItem('whisperwood-save');
+        if (!raw) {
+          showToast('No saved journey found.');
+          return false;
+        }
+        const data = JSON.parse(raw);
+        Object.assign(hero, heroDefaults, data.hero || {});
+        hero.inventory = { ...heroDefaults.inventory, ...(data.hero?.inventory || {}) };
+        questStage = data.questStage || 0;
+        chest.open = !!data.chestOpen;
+        if (Array.isArray(data.slimes)) {
+          data.slimes.forEach((slimeState, idx) => {
+            if (!slimes[idx]) return;
+            Object.assign(slimes[idx], slimeState);
+          });
+        }
+        started = true;
+        hideDialog();
+        enterWorld();
+        updateHeroUI();
+        renderInventory();
+        showToast(`Welcome back, ${hero.name}.`);
+        return true;
+      } catch (error) {
+        console.error(error);
+        showToast('Save file was unreadable.');
+        return false;
+      }
+    }
+
+    function startNewGame() {
+      Object.assign(hero, { ...heroDefaults, color: hero.color || heroDefaults.color, role: hero.role || heroDefaults.role, name: hero.name || heroDefaults.name });
+      hero.hp = hero.maxHp;
+      hero.x = 120;
+      hero.y = 400;
+      hero.gold = 12;
+      hero.level = 1;
+      hero.xp = 0;
+      hero.inventory = { '🍎': 2, '🧪': 1, '🪵': 2, '🪙': 12 };
+      chest.open = false;
+      questStage = 0;
+      slimes.forEach(slime => { slime.hp = 3; slime.alive = true; });
+      started = true;
+      enterWorld();
+      updateHeroUI();
+      renderInventory();
+      closeInventory();
+      hideDialog();
+      showToast('A new adventure begins.');
+    }
+
+    function pickClass(nextClass) {
+      document.querySelectorAll('.choice').forEach(button => {
+        button.classList.toggle('active', button.dataset.class === nextClass);
+      });
+      hero.role = nextClass;
+      document.getElementById('preview').textContent = nextClass === 'Scout' ? '🧭' : nextClass === 'Mage' ? '✨' : '🧑';
+    }
+
+    function pickColor(nextColor) {
+      document.querySelectorAll('.swatch').forEach(button => {
+        button.classList.toggle('active', button.dataset.color === nextColor);
+      });
+      hero.color = nextColor;
+      document.getElementById('preview').style.background = `radial-gradient(ellipse, ${nextColor}, #2f5c45 60%, #1b2d22 100%)`;
+    }
+
+    function createHero() {
+      hero.name = 'Rowan';
+      hero.role = document.querySelector('.choice.active')?.dataset.class || hero.role;
+      hero.color = document.querySelector('.swatch.active')?.dataset.color || hero.color;
+      startNewGame();
+      enterWorld();
+      showToast(`Welcome, ${hero.name}.`);
+      closeInventory();
+      hideDialog();
+    }
+
+    function showDialog(title, text, actions) {
+      activeDialog = { title, text, actions };
+      const panel = document.createElement('div');
+      panel.className = 'overlay show';
+      panel.id = 'dialogOverlay';
+      panel.innerHTML = `
+        <div class="panel">
+          <h2>${title}</h2>
+          <p>${text}</p>
+          <div class="button-row" id="dialogActions"></div>
+        </div>
+      `;
+      document.body.appendChild(panel);
+      const actionsWrap = panel.querySelector('#dialogActions');
+      actions.forEach(([label, action]) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = label;
+        btn.onclick = () => {
+          panel.remove();
+          activeDialog = null;
+          if (action === 'acceptQuest') {
+            questStage = slimes.every(slime => !slime.alive) ? 2 : 1;
+            showToast(questStage === 2 ? 'The glade is already clear! Return to the elder.' : 'Quest accepted: clear the glade!');
+            updateHeroUI();
+          } else if (action === 'finishQuest') {
+            questStage = 3;
+            hero.gold += 20;
+            hero.xp += 15;
+            hero.inventory['🪙'] = (hero.inventory['🪙'] || 0) + 20;
+            showToast('Quest complete! +20 gold and +15 XP');
+            updateHeroUI();
+            renderInventory();
+          } else if (action === 'close') {
+            hideDialog();
+          }
+        };
+        actionsWrap.appendChild(btn);
+      });
+    }
+
+    function hideDialog() {
+      const dialog = document.getElementById('dialogOverlay');
+      if (dialog) dialog.remove();
+      activeDialog = null;
+    }
+
+    function nearby() {
+      const interactables = [];
+      if (distance(hero, elder) < 52) interactables.push({ type: 'elder' });
+      if (distance(hero, chest) < 46) interactables.push({ type: 'chest' });
+      slimes.forEach((slime, i) => {
+        if (slime.alive && distance(hero, slime) < 45) interactables.push({ type: 'slime', i });
+      });
+      return interactables[0] || null;
+    }
+
+    function distance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function blocked(x, y, radius = 16) {
+      if (x - radius < 0 || x + radius > world.w || y - radius < 0 || y + radius > world.h) return true;
+      for (const obj of obstacles) {
+        const left = obj.x - 12, right = obj.x + obj.w + 12;
+        const top = obj.y - 12, bottom = obj.y + obj.h + 12;
+        if (x + radius > left && x - radius < right && y + radius > top && y - radius < bottom) return true;
+      }
+      return false;
+    }
+
+    function move(dt) {
+      if (!started || activeDialog || hud.inventoryPanel.classList.contains('show')) return;
+      if (Object.values(keys).some(Boolean)) {
+        let dx = 0;
+        let dy = 0;
+        if (keys.ArrowUp || keys.w) dy -= 1;
+        if (keys.ArrowDown || keys.s) dy += 1;
+        if (keys.ArrowLeft || keys.a) dx -= 1;
+        if (keys.ArrowRight || keys.d) dx += 1;
+
+        if (dx || dy) {
+          const len = Math.hypot(dx, dy) || 1;
+          dx /= len;
+          dy /= len;
+          const speed = 150 * dt;
+          const nx = hero.x + dx * speed;
+          const ny = hero.y + dy * speed;
+          if (!blocked(nx, hero.y)) hero.x = nx;
+          if (!blocked(hero.x, ny)) hero.y = ny;
+
+          if (Math.abs(dx) > Math.abs(dy)) hero.facing = dx > 0 ? 'right' : 'left';
+          else hero.facing = dy > 0 ? 'down' : 'up';
+        }
+      }
+    }
+
+    function performAction() {
+      if (!started || hud.inventoryPanel.classList.contains('show')) return;
+      const target = nearby();
+      if (!target) {
+        showToast('Nothing nearby. The forest is quiet for a moment.');
+        return;
+      }
+
+      if (target.type === 'elder') {
+        if (questStage === 0) {
+          showDialog('Elder Rowan', 'Moonleaf-chewing slimes have invaded my glade. Clear them out, and I will reward you with coins and gratitude.', [
+            ['I’ll help!', 'acceptQuest'],
+            ['Later', 'close']
+          ]);
+        } else if (questStage === 1) {
+          showToast('Those slimes are still roaming the glade. Keep going!');
+        } else if (questStage === 2) {
+          showDialog('Elder Rowan', 'The moonleaf is safe again. Kindly take this reward for your courage.', [
+            ['Thank you!', 'finishQuest'],
+            ['Keep the forest safe', 'close']
+          ]);
+        } else {
+          showDialog('Elder Rowan', 'The glade is peaceful once more. Travel the path and keep a watchful eye on the wild places.', [
+            ['Farewell', 'close']
+          ]);
+        }
+        return;
+      }
+
+      if (target.type === 'chest') {
+        if (chest.open) {
+          showToast('The chest is empty now.');
+          return;
+        }
+        chest.open = true;
+        hero.gold += 8;
+        hero.inventory['🪙'] = (hero.inventory['🪙'] || 0) + 8;
+        hero.inventory['🌿'] = (hero.inventory['🌿'] || 0) + 1;
+        hero.xp += 5;
+        showToast('You find 8 gold and a sprig of moonleaf!');
+        renderInventory();
+        updateHeroUI();
+        return;
+      }
+
+      if (target.type === 'slime') {
+        attack(target.i);
+      }
+    }
+
+    function attack(index) {
+      const slime = slimes[index];
+      if (!slime || !slime.alive) return;
+      if (attackTimer > 0) return;
+      attackTimer = 0.28;
+      slime.hp -= 1;
+      hero.facing = slime.x > hero.x ? 'right' : 'left';
+      if (slime.hp <= 0) {
+        slime.alive = false;
+        hero.gold += 2;
+        hero.xp += 5;
+        hero.inventory['🪙'] = (hero.inventory['🪙'] || 0) + 2;
+        showToast('Slime defeated! +2 gold · +5 XP');
+        if (questStage === 1 && slimes.every(s => !s.alive)) {
+          questStage = 2;
+          showToast('The glade is clear! Return to Elder Rowan.');
+        }
+      } else {
+        showToast('A solid hit! One more should finish it.');
+      }
+      updateHeroUI();
+      renderInventory();
+    }
+
+    function drawWorld() {
+      ctx.clearRect(0, 0, world.w, world.h);
+      const ground = ctx.createLinearGradient(0, 0, 0, world.h);
+      ground.addColorStop(0, '#204532');
+      ground.addColorStop(1, '#10271d');
+      ctx.fillStyle = ground;
+      ctx.fillRect(0, 0, world.w, world.h);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      for (let i = 0; i < 80; i++) {
+        const x = (i * 97) % world.w;
+        const y = (i * 47) % world.h;
+        ctx.fillRect(x, y, 2, 2);
+      }
+
+      drawPath();
+      drawTrees();
+      drawObstacles();
+      drawChest();
+      drawElder();
+      drawSlimes();
+      drawHero();
+      drawGoalMarker();
+    }
+
+    function drawPath() {
+      ctx.beginPath();
+      ctx.moveTo(0, 420);
+      ctx.lineTo(200, 430);
+      ctx.quadraticCurveTo(330, 455, 500, 440);
+      ctx.lineTo(960, 455);
+      ctx.lineWidth = 60;
+      ctx.strokeStyle = '#5b4a3f';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(540, 560);
+      ctx.lineTo(540, 150);
+      ctx.lineWidth = 48;
+      ctx.strokeStyle = '#5b4a3f';
+      ctx.stroke();
+    }
+
+    function drawTrees() {
+      const treePositions = [
+        [60, 40], [200, 60], [940, 80], [890, 215], [120, 520], [710, 500], [860, 490], [330, 480], [180, 170]
+      ];
+      for (const [x, y] of treePositions) {
+        ctx.fillStyle = '#4d2d1a';
+        ctx.fillRect(x, y, 16, 36);
+        ctx.beginPath();
+        ctx.fillStyle = '#2d6a45';
+        ctx.arc(x + 8, y - 10, 26, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawObstacles() {
+      for (const obj of obstacles) {
+        ctx.fillStyle = '#445f4f';
+        ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';
+        ctx.fillRect(obj.x, obj.y + obj.h - 10, obj.w, 12);
+      }
+    }
+
+    function drawChest() {
+      ctx.save();
+      const open = chest.open;
+      ctx.translate(chest.x, chest.y);
+      ctx.fillStyle = '#6a4d1d';
+      ctx.fillRect(-16, -8, 32, 22);
+      ctx.fillStyle = open ? '#8e7543' : '#8d6a2b';
+      ctx.fillRect(-14, -10, 28, 8);
+      ctx.fillStyle = '#5a4218';
+      ctx.fillRect(-12, 6, 6, 12);
+      ctx.fillRect(6, 6, 6, 12);
+      ctx.fillStyle = '#d5b96f';
+      ctx.fillRect(-3, -8, 6, 8);
+      ctx.restore();
+    }
+
+    function drawElder() {
+      ctx.save();
+      ctx.translate(elder.x, elder.y);
+      ctx.fillStyle = '#e4d4b0';
+      ctx.beginPath();
+      ctx.arc(0, -12, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#5f7d4e';
+      ctx.fillRect(-6, 0, 12, 18);
+      ctx.fillStyle = '#9bc26f';
+      ctx.fillRect(-10, 12, 8, 16);
+      ctx.fillRect(2, 12, 8, 16);
+      ctx.restore();
+    }
+
+    function drawSlimes() {
+      slimes.forEach((slime) => {
+        if (!slime.alive) return;
+        ctx.save();
+        ctx.translate(slime.x, slime.y);
+        ctx.fillStyle = '#7bd778';
+        ctx.beginPath();
+        ctx.arc(0, 0, slime.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#daf0ca';
+        ctx.fillRect(-6, -3, 12, 6);
+        ctx.restore();
+      });
+    }
+
+    function drawHero() {
+      ctx.save();
+      ctx.translate(hero.x, hero.y);
+      ctx.fillStyle = hero.color || '#8bcf80';
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ebf7db';
+      ctx.beginPath();
+      ctx.arc(hero.facing === 'left' ? -4 : 4, -4, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#132018';
+      ctx.fillRect(-8, 14, 16, 6);
+      ctx.restore();
+    }
+
+    function drawGoalMarker() {
+      if (questStage === 1 || questStage === 2) {
+        const cx = questStage === 1 ? 720 : elder.x;
+        const cy = questStage === 1 ? 190 : elder.y - 34;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.strokeStyle = '#f7d77b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -18);
+        ctx.lineTo(10, -4);
+        ctx.lineTo(0, 10);
+        ctx.lineTo(-10, -4);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function update(dt) {
+      if (started) {
+        move(dt);
+      }
+      if (toastTimer > 0) {
+        toastTimer -= dt;
+        if (toastTimer <= 0) hud.toast.classList.remove('visible');
+      }
+      if (attackTimer > 0) attackTimer -= dt;
+      drawWorld();
+    }
+
+    function gameLoop(ts) {
+      const dt = Math.min(0.04, (ts - lastTime) / 1000 || 0.016);
+      lastTime = ts;
+      update(dt);
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.getElementById('newGameBtn').addEventListener('click', () => {
+      showOverlay('creator');
+      pickClass(hero.role || 'Warden');
+      pickColor(hero.color || '#8bcf80');
+    });
+
+    document.getElementById('continueGameBtn').addEventListener('click', () => {
+      if (!loadGame()) showOverlay('creator');
+    });
+
+    document.getElementById('backToStartBtn').addEventListener('click', () => showOverlay('start'));
+    document.getElementById('createHeroBtn').addEventListener('click', createHero);
+
+    document.querySelectorAll('.choice').forEach(button => {
+      button.addEventListener('click', () => pickClass(button.dataset.class));
+    });
+
+    document.querySelectorAll('.swatch').forEach(button => {
+      button.addEventListener('click', () => pickColor(button.dataset.color));
+    });
+
+    document.getElementById('closeInventoryBtn').addEventListener('click', closeInventory);
+    document.getElementById('touchInventory').addEventListener('click', () => {
+      if (hud.inventoryPanel.classList.contains('show')) closeInventory();
+      else openInventory();
+    });
+    document.getElementById('touchSave').addEventListener('click', saveGame);
+    document.getElementById('touchInteract').addEventListener('click', performAction);
+    document.getElementById('touchAttack').addEventListener('click', () => {
+      const target = nearby();
+      if (target?.type === 'slime') attack(target.i);
+      else performAction();
+    });
+
+    document.querySelectorAll('[data-dir]').forEach(button => {
+      const dir = button.dataset.dir;
+      const setPressed = (pressed) => {
+        const map = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+        keys[map[dir]] = pressed;
+        if (!pressed) keys[map[dir]] = false;
+      };
+      button.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        setPressed(true);
+      });
+      button.addEventListener('pointerup', (event) => {
+        event.preventDefault();
+        setPressed(false);
+      });
+      button.addEventListener('pointerleave', () => setPressed(false));
+      button.addEventListener('pointercancel', () => setPressed(false));
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.preventDefault();
+      if (event.key === 'Escape') {
+        if (activeDialog) {
+          hideDialog();
+          return;
+        }
+        if (hud.inventoryPanel.classList.contains('show')) {
+          closeInventory();
+          return;
+        }
+        if (started) saveGame();
+        return;
+      }
+
+      if (event.key === 'i' || event.key === 'I') {
+        if (hud.inventoryPanel.classList.contains('show')) closeInventory();
+        else openInventory();
+        return;
+      }
+
+      if (event.key === 'e' || event.key === 'E' || event.key === 'Enter') {
+        if (activeDialog) {
+          const buttons = document.querySelectorAll('#dialogOverlay button');
+          if (buttons.length) buttons[0].click();
+          return;
+        }
+        performAction();
+        return;
+      }
+
+      if (event.code === 'Space') {
+        const target = nearby();
+        if (target?.type === 'slime') attack(target.i);
+        else performAction();
+        return;
+      }
+
+      if (event.key === 's' || event.key === 'S' || event.key === 'w' || event.key === 'W' || event.key === 'a' || event.key === 'A' || event.key === 'd' || event.key === 'D') {
+        keys[event.key] = true;
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        keys[event.key] = true;
+      }
+    });
+
+    window.addEventListener('keyup', (event) => {
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') keys[event.key] = false;
+      if (event.key === 'w' || event.key === 'a' || event.key === 's' || event.key === 'd') keys[event.key] = false;
+    });
+
+    window.addEventListener('blur', () => {
+      Object.keys(keys).forEach((key) => keys[key] = false);
+    });
+
+    function initialDraw() {
+      pickClass(hero.role || 'Warden');
+      pickColor(hero.color || '#8bcf80');
+      updateHeroUI();
+      renderInventory();
+      drawWorld();
+    }
+
+    initialDraw();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
