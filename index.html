@@ -203,37 +203,48 @@ const MOTH_RELIC = { id: 'moth', name: 'Ala de Polilla', icon: '🦋', power: 1,
 function makePalette(role, cloakColor) {
   const mage = role === 'Maga', ranger = role === 'Exploradora';
   const cloak = cloakColor || '#88b978';
+  const skin = '#f6d2b0';
   const pal = {
-    outline: '#241c22', skin: '#f3cba8', skinShade: '#d7a17d',
-    hair: mage ? '#e6ddc4' : '#6b3d2c',
-    hairLight: mage ? '#fff4d6' : '#a76543',
-    hairDark: mage ? '#b9ae95' : '#40231e',
+    outline: '#241c22',
+    skin, skinLight: shade(skin, 0.2), skinShade: shade(skin, -0.18),
+    blush: '#e7948f', lip: '#b95f66',
+    hair: mage ? '#e9dfc6' : ranger ? '#7a4a2e' : '#6b3d2c',
+    hairLight: mage ? '#fff7de' : ranger ? '#b9794a' : '#a76543',
+    hairDark: mage ? '#b6aa90' : ranger ? '#4a2a1c' : '#40231e',
+    hairMid: mage ? '#d8cbb0' : ranger ? '#96603c' : '#87503a',
+    iris: mage ? '#7d5aa8' : ranger ? '#a06a34' : '#4f7a4a',
     tunic: mage ? '#5b4a78' : ranger ? '#6f7d4d' : '#efe6cf',
-    tunicLight: mage ? '#7d68a0' : ranger ? '#8a9a63' : '#fff8e6',
-    tunicShade: mage ? '#403456' : ranger ? '#4e5b36' : '#c9bfa7',
+    tunicLight: mage ? '#806aa4' : ranger ? '#8e9e66' : '#fff8e6',
+    tunicShade: mage ? '#3d3152' : ranger ? '#4b5734' : '#c9bfa7',
     leather: '#7a5034', leatherDark: '#4a2e20', boots: '#3b2a26',
-    metal: '#cfd9d6', metalDark: '#7c8b8c', gold: '#e7c66c',
+    metal: '#cfd9d6', metalDark: '#7c8b8c',
+    gold: '#e7c66c', goldLight: '#f7e3a4', goldDark: '#a8843a',
     eye: '#2a2834', mouth: '#8b4e4a', white: '#fff8e8',
     cloak, cloakDark: shade(cloak, -0.35), cloakShade: shade(cloak, -0.18), cloakLight: shade(cloak, 0.22),
-    rim: '#ffe6a8'
+    rim: '#ffe6a8', longHair: true
   };
   return pal;
 }
 const npcPalette = {
   ...makePalette('Maga', '#6e5b8c'),
-  hair: '#dfd6bd', hairLight: '#fff5d9', hairDark: '#a69c84',
-  tunic: '#6e5b8c', tunicLight: '#8d78ad', tunicShade: '#4b3c63',
-  robe: '#6e5b8c', robeShade: '#4b3c63', robeLight: '#9b86b7',
-  cloak: '#6e5b8c', cloakDark: '#3d3053', cloakShade: '#4b3c63', cloakLight: '#9b86b7'
+  hair: '#e2d8be', hairLight: '#fff6dd', hairDark: '#a99e85', hairMid: '#cbbfa2',
+  iris: '#8a6bb5', blush: '#e79a95', lip: '#b5656b',
+  skin: '#f7d5b4', skinLight: '#ffe6cd', skinShade: '#d9a582',
+  tunic: '#6e5b8c', tunicLight: '#917cb1', tunicShade: '#4b3c63',
+  robe: '#6e5b8c', robeShade: '#4b3c63', robeLight: '#a08bc0',
+  cloak: '#6e5b8c', cloakDark: '#3d3053', cloakShade: '#4b3c63', cloakLight: '#9b86b7',
+  goldLight: '#f8e4a8', goldDark: '#a8843a', longHair: true
 };
 const spiritPalette = {
   ...makePalette('Maga', '#4f8f86'),
-  hair: '#cfe9dd', hairLight: '#eafff5', hairDark: '#8fb8ab',
-  skin: '#dff2e8', skinShade: '#b8d6c9', eye: '#1f5a55',
-  tunic: '#3f6f6a', tunicLight: '#5c9a90', tunicShade: '#2c4f4c',
-  robe: '#3f6f6a', robeShade: '#2c4f4c', robeLight: '#6fb3a6',
+  hair: '#d5efe4', hairLight: '#f0fffa', hairDark: '#8fb8ab', hairMid: '#b3d8cc',
+  skin: '#e6f6ef', skinLight: '#f6fffb', skinShade: '#b8d6c9',
+  iris: '#4fe0c8', blush: '#9fdccd', lip: '#7fc4b7',
+  eye: '#1f5a55',
+  tunic: '#3f6f6a', tunicLight: '#63a79d', tunicShade: '#2c4f4c',
+  robe: '#3f6f6a', robeShade: '#2c4f4c', robeLight: '#7cc3b6',
   cloak: '#4f8f86', cloakDark: '#2b524e', cloakShade: '#35605c', cloakLight: '#7fc4b7',
-  rim: '#d8fff2'
+  rim: '#d8fff2', longHair: true
 };
 
 /* ── 8-direction character sprite generation ───────────────────────────── */
@@ -275,148 +286,313 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
   const bob = state === 'idle' && f === 1 ? 1 : (state === 'walk' && (f === 1 || f === 3) ? 1 : 0);
   const lean = act ? (side || 1) : hurt ? -1 : 0;
   const cx = 16;
+  const skinL = pal.skinLight || shade(pal.skin, 0.18);
+  const hairMid = pal.hairMid || pal.hair;
+  const blush = pal.blush || '#e7948f';
+  const lip = pal.lip || pal.mouth;
+  const iris = pal.iris || pal.eye;
+  const goldL = pal.goldLight || shade(pal.gold, 0.32);
+  const goldD = pal.goldDark || shade(pal.gold, -0.28);
+  const longHair = pal.longHair !== false;
 
   g.save();
   g.translate(lean, -bob);
 
   drawCape(g, pal, dir, state, f, cx);
 
-  /* legs */
+  /* long hair falling behind the body */
+  if (longHair && !back) {
+    if (side) {
+      const hb = cx - side * 5;
+      p(g, hb - 3, 10, 7, 15, pal.hairDark);
+      p(g, hb - 2, 11, 3, 12, pal.hair);
+    } else {
+      p(g, cx - 8, 10, 4, 16, pal.hairDark);
+      p(g, cx + 4, 10, 4, 16, pal.hairDark);
+      p(g, cx - 7, 11, 2, 13, pal.hair);
+      p(g, cx + 5, 11, 2, 13, pal.hair);
+    }
+  }
+
+  /* legs and boots */
   if (side) {
     const lx = cx - 2 - side * step * 2;
     const rx = cx + 1 + side * step * 2;
-    p(g, lx, 33, 4, 9, pal.leatherDark);
-    p(g, lx, 40, 5, 5, pal.boots);
-    p(g, rx, 33, 4, 10, pal.leather);
-    p(g, rx, 40, 5, 5, pal.boots);
+    p(g, lx, 32, 4, 8, pal.leatherDark);
+    p(g, rx, 32, 4, 9, pal.leather);
+    p(g, rx, 33, 1, 5, shade(pal.leather, 0.22));
+    p(g, lx - 1, 40, 6, 5, pal.boots);
+    p(g, rx - 1, 40, 6, 5, pal.boots);
+    p(g, lx - 1, 40, 6, 1, shade(pal.boots, 0.32));
+    p(g, rx - 1, 40, 6, 1, shade(pal.boots, 0.32));
     p(g, lx, 39, 5, 1, pal.outline);
     p(g, rx, 39, 5, 1, pal.outline);
   } else {
     const lx = cx - 5 + (step > 0 ? 1 : 0);
     const rx = cx + 1 + (step < 0 ? 1 : 0);
-    p(g, lx, 33, 5, 9, pal.leather);
-    p(g, lx, 41, 5, 4, pal.boots);
-    p(g, rx, 33, 5, 9, pal.leatherDark);
-    p(g, rx, 41, 5, 4, pal.boots);
-    p(g, lx, 40, 5, 1, pal.outline);
-    p(g, rx, 40, 5, 1, pal.outline);
+    p(g, lx, 32, 5, 8, pal.leather);
+    p(g, rx, 32, 5, 8, pal.leatherDark);
+    p(g, lx, 32, 2, 6, shade(pal.leather, 0.2));
+    p(g, lx - 1, 40, 6, 5, pal.boots);
+    p(g, rx - 1, 40, 6, 5, pal.boots);
+    p(g, lx - 1, 40, 6, 1, shade(pal.boots, 0.32));
+    p(g, rx - 1, 40, 6, 1, shade(pal.boots, 0.32));
+    p(g, lx, 39, 5, 1, pal.outline);
+    p(g, rx, 39, 5, 1, pal.outline);
+    p(g, lx, 44, 3, 1, shade(pal.boots, 0.18));
+    p(g, rx, 44, 3, 1, shade(pal.boots, 0.18));
   }
 
   /* torso */
-  p(g, cx - 6, 19, 12, 15, pal.outline);
-  p(g, cx - 5, 20, 10, 13, pal.tunic);
-  p(g, cx - 5, 20, 10, 2, pal.tunicLight);
+  /* tapered shoulders and waist avoid the old boxy torso silhouette */
+  p(g, cx - 4, 19, 8, 1, pal.outline);
+  p(g, cx - 6, 20, 12, 2, pal.outline);
+  p(g, cx - 7, 22, 14, 5, pal.outline);
+  p(g, cx - 6, 27, 12, 2, pal.outline);
+  p(g, cx - 5, 29, 10, 1, pal.outline);
+  p(g, cx - 3, 20, 6, 1, pal.tunicLight);
+  p(g, cx - 5, 21, 10, 2, pal.tunic);
+  p(g, cx - 6, 23, 12, 4, pal.tunic);
+  p(g, cx - 5, 27, 10, 2, pal.tunic);
+  p(g, cx - 4, 29, 8, 1, pal.tunicShade);
+  p(g, cx - 4, 28, 8, 2, pal.outline);
+  p(g, cx - 4, 28, 8, 1, pal.tunicShade);
+  p(g, cx - 5, 20, 2, 7, pal.tunicLight);
+  p(g, cx + 4, 20, 1, 7, pal.tunicShade);
+  p(g, cx - 3, 20, 6, 1, pal.tunicLight);
+
+  /* collar and neckline */
+  if (!back) {
+    p(g, cx - 3, 20, 6, 1, pal.outline);
+    p(g, cx - 2, 21, 4, 1, pal.skinShade);
+  }
+
+  /* tabard / chest panel */
+  if (!opt.robe && !back) {
+    p(g, cx - 3, 22, 6, 5, pal.cloakShade);
+    p(g, cx - 3, 22, 6, 1, pal.cloak);
+    p(g, cx - 2, 23, 4, 3, pal.cloak);
+    p(g, cx - 2, 23, 1, 3, pal.cloakLight);
+    p(g, cx + 1, 23, 1, 3, pal.cloakShade);
+    p(g, cx - 1, 22, 2, 2, pal.gold);
+    p(g, cx - 1, 22, 1, 1, goldL);
+    p(g, cx - 4, 24, 1, 4, pal.leatherDark);
+    p(g, cx - 3, 24, 1, 1, goldL);
+    p(g, cx - 3, 26, 1, 1, goldL);
+  }
+
+  /* belt, buckle and pouch */
+  p(g, cx - 5, 28, 10, 2, pal.leatherDark);
+  p(g, cx - 5, 28, 10, 1, pal.leather);
+  p(g, cx - 1, 28, 3, 2, pal.gold);
+  p(g, cx, 28, 1, 2, goldD);
+  if (side >= 0 && !back) {
+    p(g, cx + 2, 30, 3, 3, pal.leather);
+    p(g, cx + 2, 30, 3, 1, shade(pal.leather, 0.22));
+    p(g, cx + 3, 30, 1, 1, pal.gold);
+  }
+
+  /* tunic skirt */
   if (!opt.robe) {
-    p(g, cx - 3, 21, 6, 8, pal.cloak);
-    p(g, cx - 3, 21, 2, 8, pal.cloakLight);
-    p(g, cx + 1, 21, 2, 8, pal.cloakShade);
-    if (!back) {
-      p(g, cx - 1, 23, 2, 4, pal.gold);
-      p(g, cx - 1, 27, 2, 1, pal.gold);
-    }
+    p(g, cx - 5, 30, 10, 4, pal.outline);
+    p(g, cx - 4, 30, 8, 3, pal.tunicShade);
+    p(g, cx - 4, 30, 8, 1, pal.tunic);
+    p(g, cx - 5, 33, 2, 2, pal.tunicShade);
+    p(g, cx + 3, 33, 2, 2, pal.tunicShade);
   }
-  p(g, cx - 5, 29, 10, 2, pal.leather);
-  p(g, cx - 1, 29, 3, 2, pal.gold);
-  p(g, cx - 1, 29, 1, 2, pal.leatherDark);
-  // shoulder guards
+
+  /* shoulder guards */
   if (opt.pauldrons) {
-    p(g, cx - 7, 19, 3, 3, pal.metalDark);
-    p(g, cx + 4, 19, 3, 3, pal.metalDark);
-    p(g, cx - 7, 19, 3, 1, pal.metal);
-    p(g, cx + 4, 19, 3, 1, pal.metal);
+    p(g, cx - 8, 19, 4, 4, pal.metalDark);
+    p(g, cx + 4, 19, 4, 4, pal.metalDark);
+    p(g, cx - 8, 19, 4, 1, pal.metal);
+    p(g, cx + 4, 19, 4, 1, pal.metal);
+    p(g, cx - 7, 20, 2, 1, pal.metal);
+    p(g, cx + 5, 20, 2, 1, pal.metal);
+    p(g, cx - 8, 22, 4, 1, goldD);
+    p(g, cx + 4, 22, 4, 1, goldD);
   }
+
+  /* robe */
   if (opt.robe) {
-    p(g, cx - 6, 19, 12, 24, pal.robe);
-    p(g, cx - 6, 33, 12, 9, pal.robeShade);
-    p(g, cx - 7, 41, 14, 2, pal.robeLight);
-    p(g, cx - 1, 22, 2, 16, pal.gold);
+    p(g, cx - 4, 19, 8, 2, pal.robe);
+    p(g, cx - 5, 21, 10, 5, pal.robe);
+    p(g, cx - 6, 26, 12, 7, pal.robe);
+    p(g, cx - 7, 33, 14, 8, pal.robeShade);
+    p(g, cx - 8, 41, 16, 2, pal.robeLight);
+    p(g, cx - 5, 21, 2, 18, pal.robeLight);
+    p(g, cx + 3, 21, 2, 18, pal.robeShade);
+    p(g, cx - 1, 21, 2, 19, pal.gold);
+    p(g, cx - 1, 21, 1, 19, goldL);
+    p(g, cx - 7, 34, 14, 1, pal.gold);
+    p(g, cx - 5, 29, 10, 2, pal.leatherDark);
+    p(g, cx - 5, 29, 10, 1, pal.leather);
+    p(g, cx - 1, 29, 2, 2, pal.gold);
   }
-  if (back) {
+
+  /* back cloak */
+  if (back && !opt.robe) {
     p(g, cx - 5, 20, 10, 13, pal.cloak);
     p(g, cx - 4, 21, 8, 11, pal.cloakShade);
     p(g, cx - 3, 22, 2, 9, pal.cloakLight);
+    p(g, cx + 2, 22, 1, 9, pal.cloakDark);
+    p(g, cx - 1, 20, 2, 2, pal.gold);
   }
 
   /* arms */
   const arm = state === 'walk' ? [1, 0, -1, 0][f] : 0;
   const armY = 21;
   if (!side) {
-    p(g, cx - 9, armY - arm, 3, 10, pal.tunic);
+    p(g, cx - 9, armY - arm, 3, 9, pal.tunic);
+    p(g, cx - 9, armY + 6 - arm, 3, 2, pal.tunicShade);
     p(g, cx - 9, armY + 8 - arm, 3, 3, pal.skin);
-    p(g, cx + 6, armY + arm, 3, 10, pal.tunic);
+    p(g, cx - 9, armY + 8 - arm, 3, 1, skinL);
+    p(g, cx + 6, armY + arm, 3, 9, pal.tunic);
+    p(g, cx + 6, armY + 6 + arm, 3, 2, pal.tunicShade);
     p(g, cx + 6, armY + 8 + arm, 3, 3, pal.skin);
+    p(g, cx + 6, armY + 8 + arm, 3, 1, skinL);
+    p(g, cx + 6, armY + 6 + arm, 3, 1, pal.leather);
     if (talk) {
       p(g, cx + 7, armY - 5, 3, 7, pal.tunic);
       p(g, cx + 7, armY - 7, 3, 3, pal.skin);
+      p(g, cx + 7, armY - 7, 3, 1, skinL);
+      p(g, cx + 7, armY - 4, 3, 1, pal.leather);
     }
     if (act) {
-      p(g, cx + 7, armY + 4, 7, 3, pal.tunic);
-      p(g, cx + 13, armY + 4, 3, 3, pal.skin);
+      p(g, cx + 7, armY + 3, 7, 3, pal.tunic);
+      p(g, cx + 7, armY + 3, 7, 1, pal.tunicLight);
+      p(g, cx + 13, armY + 3, 3, 3, pal.skin);
+      p(g, cx + 13, armY + 3, 3, 1, skinL);
+      p(g, cx + 12, armY + 3, 1, 3, pal.leather);
     }
     if (atk) {
-      p(g, cx + 7, armY + 2, 6, 3, pal.tunic);
-      p(g, cx + 12, armY + 2, 3, 3, pal.skin);
+      p(g, cx + 7, armY + 1, 6, 3, pal.tunic);
+      p(g, cx + 7, armY + 1, 6, 1, pal.tunicLight);
+      p(g, cx + 12, armY + 1, 3, 3, pal.skin);
+      p(g, cx + 12, armY + 1, 3, 1, skinL);
+      p(g, cx + 11, armY + 1, 1, 3, pal.leather);
     }
   } else {
     const ax = side > 0 ? cx + 6 : cx - 9;
-    p(g, ax, armY + arm, 3, 10, pal.tunic);
+    p(g, ax, armY + arm, 3, 9, pal.tunic);
+    p(g, ax, armY + 6 + arm, 3, 2, pal.tunicShade);
     p(g, ax, armY + 8 + arm, 3, 3, pal.skin);
+    p(g, ax, armY + 8 + arm, 3, 1, skinL);
+    p(g, ax, armY + 6 + arm, 3, 1, pal.leather);
     if (talk) {
-      const hx = cx + side * 4;
-      p(g, hx - 1, armY - 3, 3, 7, pal.tunic);
-      p(g, hx - 1, armY - 5, 3, 3, pal.skin);
+      const hx2 = cx + side * 4;
+      p(g, hx2 - 1, armY - 3, 3, 7, pal.tunic);
+      p(g, hx2 - 1, armY - 5, 3, 3, pal.skin);
+      p(g, hx2 - 1, armY - 5, 3, 1, skinL);
+      p(g, hx2 - 1, armY - 2, 3, 1, pal.leather);
     }
     if (act) {
       const ex = side > 0 ? cx + 8 : cx - 14;
       p(g, ex, armY + 3, 6, 3, pal.tunic);
+      p(g, ex, armY + 3, 6, 1, pal.tunicLight);
       p(g, side > 0 ? ex + 5 : ex - 3, armY + 3, 3, 3, pal.skin);
+      p(g, side > 0 ? ex + 5 : ex - 3, armY + 3, 3, 1, skinL);
     }
     if (atk) {
       const ex = side > 0 ? cx + 8 : cx - 12;
       p(g, ex, armY + 1, 5, 3, pal.tunic);
+      p(g, ex, armY + 1, 5, 1, pal.tunicLight);
       p(g, side > 0 ? ex + 4 : ex - 3, armY + 1, 3, 3, pal.skin);
+      p(g, side > 0 ? ex + 4 : ex - 3, armY + 1, 3, 1, skinL);
     }
   }
 
   /* head */
   const hx = cx + (side ? side : 0);
   const hy = 7;
-  p(g, hx - 6, hy, 12, 13, pal.outline);
   if (!back) {
-    p(g, hx - 5, hy + 2, 10, 10, pal.skin);
-    p(g, hx - 5, hy + 10, 10, 2, pal.skinShade);
-    p(g, hx - 7, hy - 1, 14, 4, pal.hair);
-    p(g, hx - 6, hy - 1, 12, 2, pal.hairLight);
-    p(g, hx - 7, hy + 2, 3, 11, pal.hair);
-    p(g, hx + 4, hy + 2, 3, 11, pal.hair);
-    p(g, hx - 6, hy + 2, 2, 5, pal.hairLight);
-    p(g, hx + 3, hy + 2, 2, 8, pal.hairDark);
-    p(g, hx - 4, hy + 2, 2, 2, pal.hairLight);
-    p(g, hx + 2, hy + 2, 2, 3, pal.hairDark);
-    p(g, hx - 5, hy + 3, 10, 1, pal.hairDark);
-    p(g, hx - 3, hy + 6, 2, 1, pal.hairDark);
-    p(g, hx + 1, hy + 6, 2, 1, pal.hairDark);
+    p(g, hx - 3, hy + 1, 6, 1, pal.outline);
+    p(g, hx - 5, hy + 2, 10, 1, pal.outline);
+    p(g, hx - 6, hy + 3, 12, 6, pal.outline);
+    p(g, hx - 5, hy + 9, 10, 2, pal.outline);
+    p(g, hx - 3, hy + 11, 6, 1, pal.outline);
+    p(g, hx - 3, hy + 2, 6, 1, skinL);
+    p(g, hx - 5, hy + 3, 10, 6, pal.skin);
+    p(g, hx - 4, hy + 9, 8, 1, pal.skin);
+    p(g, hx - 4, hy + 11, 8, 1, pal.outline);
+    p(g, hx - 3, hy + 11, 6, 1, pal.skin);
+    p(g, hx - 5, hy + 10, 10, 1, pal.skinShade);
+    p(g, hx - 6, hy + 6, 1, 3, pal.skin);
+    p(g, hx + 5, hy + 6, 1, 3, pal.skin);
+    p(g, hx - 3, hy + 4, 6, 1, skinL);
+    p(g, hx - 5, hy + 9, 2, 1, blush);
+    p(g, hx + 3, hy + 9, 2, 1, blush);
+    p(g, hx, hy + 9, 1, 1, pal.skinShade);
+    p(g, hx - 1, hy + 10, 3, 1, lip);
+
+    /* eyes */
     if (side) {
-      const ex = hx + side * 2;
-      p(g, ex, hy + 7, 2, 3, pal.white);
-      p(g, ex + (side > 0 ? 1 : 0), hy + 7, 1, 2, pal.eye);
-      p(g, ex - 1, hy + 11, 3, 1, talk ? pal.mouth : pal.skinShade);
-      p(g, hx + side, hy + 10, 1, 1, pal.skinShade);
+      const ex = hx + side * 1;
+      p(g, ex, hy + 6, 2, 2, pal.white);
+      p(g, ex + (side > 0 ? 1 : 0), hy + 6, 1, 2, iris);
+      p(g, ex + (side > 0 ? 1 : 0), hy + 7, 1, 1, pal.eye);
+      p(g, ex, hy + 5, 2, 1, pal.hairDark);
+      p(g, ex, hy + 8, 2, 1, pal.skinShade);
+      p(g, hx + side * 5, hy + 8, 1, 1, pal.skinShade);
+      p(g, hx + side * 3, hy + 10, 2, 1, lip);
+      if (talk) p(g, hx + side * 3, hy + 10, 2, 2, pal.mouth);
+      p(g, hx + side * 2, hy + 9, 1, 1, blush);
+      p(g, hx - side * 5, hy + 8, 1, 1, pal.gold);
     } else {
-      p(g, hx - 3, hy + 7, 2, 3, pal.white);
-      p(g, hx + 1, hy + 7, 2, 3, pal.white);
-      p(g, hx - 2, hy + 8, 1, 2, pal.eye);
-      p(g, hx + 2, hy + 8, 1, 2, pal.eye);
-      p(g, hx - 1, hy + 10, 1, 1, pal.skinShade);
-      if (talk) p(g, hx - 1, hy + 11, 3, 1, pal.mouth);
-      else p(g, hx - 1, hy + 11, 2, 1, pal.skinShade);
-      p(g, hx - 4, hy + 9, 1, 1, pal.skinShade);
-      p(g, hx + 4, hy + 9, 1, 1, pal.skinShade);
+      p(g, hx - 4, hy + 6, 3, 2, pal.white);
+      p(g, hx + 1, hy + 6, 3, 2, pal.white);
+      p(g, hx - 3, hy + 6, 2, 2, iris);
+      p(g, hx + 1, hy + 6, 2, 2, iris);
+      p(g, hx - 2, hy + 7, 1, 1, pal.eye);
+      p(g, hx + 2, hy + 7, 1, 1, pal.eye);
+      p(g, hx - 3, hy + 6, 1, 1, pal.white);
+      p(g, hx + 1, hy + 6, 1, 1, pal.white);
+      p(g, hx - 4, hy + 5, 3, 1, pal.hairDark);
+      p(g, hx + 1, hy + 5, 3, 1, pal.hairDark);
+      p(g, hx - 4, hy + 8, 3, 1, pal.skinShade);
+      p(g, hx + 1, hy + 8, 3, 1, pal.skinShade);
+      if (talk) p(g, hx - 1, hy + 10, 3, 2, pal.mouth);
     }
+
+    /* hair */
+    p(g, hx - 7, hy - 1, 14, 5, pal.hair);
+    p(g, hx - 6, hy - 1, 12, 2, pal.hairLight);
+    p(g, hx - 7, hy + 3, 3, 9, pal.hair);
+    p(g, hx + 4, hy + 3, 3, 9, pal.hair);
+    p(g, hx - 6, hy + 3, 2, 5, pal.hairLight);
+    p(g, hx + 4, hy + 3, 2, 8, pal.hairDark);
+    p(g, hx - 5, hy + 3, 4, 2, pal.hairLight);
+    p(g, hx - 1, hy + 2, 3, 3, pal.hair);
+    p(g, hx + 2, hy + 3, 3, 2, pal.hairDark);
+    p(g, hx, hy + 1, 1, 4, pal.hairDark);
+    p(g, hx - 4, hy + 4, 2, 1, hairMid);
+    p(g, hx + 2, hy + 4, 2, 1, hairMid);
+    p(g, hx - 7, hy + 5, 2, 7, pal.hair);
+    p(g, hx + 5, hy + 5, 2, 7, pal.hair);
+    p(g, hx - 7, hy + 6, 1, 5, pal.hairLight);
     p(g, hx - 4, hy + 3, 8, 1, pal.gold);
+    p(g, hx, hy + 3, 1, 1, goldL);
+    p(g, hx - 6, hy + 8, 1, 1, pal.gold);
+    p(g, hx + 5, hy + 8, 1, 1, pal.gold);
+
+    /* redraw the mouth over the fringe: two readable phoneme frames */
+    if (talk) {
+      p(g, hx - 1, hy + 10, 3, 2, pal.mouth);
+      if (f % 2 === 0) {
+        p(g, hx - 1, hy + 10, 3, 1, lip);
+        p(g, hx, hy + 11, 1, 1, '#f7d9c8');
+      } else {
+        p(g, hx, hy + 10, 1, 2, pal.outline);
+        p(g, hx, hy + 10, 1, 1, '#f7d9c8');
+      }
+      p(g, hx - 2, hy + 9, 1, 1, blush);
+      p(g, hx + 2, hy + 9, 1, 1, blush);
+    }
+
     if (hurt) {
-      p(g, hx - 3, hy + 7, 2, 1, pal.eye);
-      p(g, hx + 1, hy + 7, 2, 1, pal.eye);
+      p(g, hx - 3, hy + 6, 2, 1, pal.eye);
+      p(g, hx + 1, hy + 6, 2, 1, pal.eye);
+      p(g, hx - 2, hy + 10, 4, 1, pal.mouth);
     }
   } else {
     p(g, hx - 6, hy + 1, 12, 12, pal.hair);
@@ -425,15 +601,20 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, hx - 5, hy + 10, 10, 7, pal.hair);
     p(g, hx - 4, hy + 15, 8, 3, pal.hairDark);
     p(g, hx - 4, hy + 3, 8, 1, pal.gold);
+    p(g, hx - 1, hy + 12, 3, 6, hairMid);
+    p(g, hx, hy + 13, 1, 4, pal.hairLight);
+    p(g, hx - 1, hy + 17, 3, 1, pal.gold);
   }
-  if (hurt) p(g, hx - 2, hy + 11, 4, 1, pal.mouth);
 
   /* staff or sword */
   if (opt.staff) {
-    p(g, cx + 10, 10, 2, 34, pal.leatherDark);
-    p(g, cx + 9, 8, 4, 4, pal.gold);
-    p(g, cx + 9, 6, 4, 2, '#dfe8ff');
-    p(g, cx + 10, 5, 2, 1, '#ffffff');
+    p(g, cx + 10, 9, 2, 35, pal.leatherDark);
+    p(g, cx + 10, 9, 1, 35, shade(pal.leatherDark, 0.24));
+    p(g, cx + 9, 7, 4, 4, pal.gold);
+    p(g, cx + 9, 7, 4, 1, goldL);
+    p(g, cx + 10, 5, 2, 3, '#dfe8ff');
+    p(g, cx + 10, 4, 2, 1, '#ffffff');
+    p(g, cx + 10, 8, 2, 1, goldD);
   }
   if (opt.weapon) {
     if (atk) {
@@ -441,10 +622,13 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
       poly(g, [[bx, 18], [bx + 3, 16], [bx + 12, 8], [bx + 14, 10], [bx + 5, 18]], pal.metal);
       poly(g, [[bx + 3, 17], [bx + 12, 9], [bx + 13, 10], [bx + 4, 18]], pal.white);
       p(g, bx, 19, 5, 2, pal.gold);
+      p(g, bx + 1, 19, 3, 1, goldL);
+      p(g, bx + 2, 15, 1, 3, pal.metalDark);
     } else {
       const hx2 = side > 0 ? cx - 8 : cx + 4;
       poly(g, [[hx2, 27], [hx2 + 3, 28], [hx2 + 4, 39], [hx2 + 1, 40]], pal.leatherDark);
       p(g, hx2, 26, 4, 3, pal.gold);
+      p(g, hx2, 26, 4, 1, goldL);
       p(g, hx2 + 1, 27, 2, 1, pal.leather);
       p(g, hx2 + 2, 38, 2, 3, pal.metal);
       p(g, hx2 + 2, 39, 1, 1, pal.white);
@@ -453,6 +637,7 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
 
   /* rim light */
   p(g, cx + (side > 0 ? 8 : 5), 20, 1, 11, pal.rim);
+  p(g, cx + (side > 0 ? 6 : -6), 8, 1, 4, pal.rim);
   g.restore();
 }
 
@@ -2714,4 +2899,3 @@ boot();
 </script>
 </body>
 </html>
-
