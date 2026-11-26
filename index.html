@@ -344,8 +344,17 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
   }
 
   /* torso */
-  p(g, cx - 6, 19, 12, 11, pal.outline);
-  p(g, cx - 5, 20, 10, 9, pal.tunic);
+  /* tapered shoulders and waist avoid the old boxy torso silhouette */
+  p(g, cx - 4, 19, 8, 1, pal.outline);
+  p(g, cx - 6, 20, 12, 2, pal.outline);
+  p(g, cx - 7, 22, 14, 5, pal.outline);
+  p(g, cx - 6, 27, 12, 2, pal.outline);
+  p(g, cx - 5, 29, 10, 1, pal.outline);
+  p(g, cx - 3, 20, 6, 1, pal.tunicLight);
+  p(g, cx - 5, 21, 10, 2, pal.tunic);
+  p(g, cx - 6, 23, 12, 4, pal.tunic);
+  p(g, cx - 5, 27, 10, 2, pal.tunic);
+  p(g, cx - 4, 29, 8, 1, pal.tunicShade);
   p(g, cx - 4, 28, 8, 2, pal.outline);
   p(g, cx - 4, 28, 8, 1, pal.tunicShade);
   p(g, cx - 5, 20, 2, 7, pal.tunicLight);
@@ -406,14 +415,16 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
 
   /* robe */
   if (opt.robe) {
-    p(g, cx - 6, 19, 12, 23, pal.robe);
-    p(g, cx - 6, 20, 2, 20, pal.robeLight);
-    p(g, cx + 4, 20, 2, 20, pal.robeShade);
-    p(g, cx - 6, 33, 12, 9, pal.robeShade);
-    p(g, cx - 7, 41, 14, 2, pal.robeLight);
+    p(g, cx - 4, 19, 8, 2, pal.robe);
+    p(g, cx - 5, 21, 10, 5, pal.robe);
+    p(g, cx - 6, 26, 12, 7, pal.robe);
+    p(g, cx - 7, 33, 14, 8, pal.robeShade);
+    p(g, cx - 8, 41, 16, 2, pal.robeLight);
+    p(g, cx - 5, 21, 2, 18, pal.robeLight);
+    p(g, cx + 3, 21, 2, 18, pal.robeShade);
     p(g, cx - 1, 21, 2, 19, pal.gold);
     p(g, cx - 1, 21, 1, 19, goldL);
-    p(g, cx - 6, 34, 12, 1, pal.gold);
+    p(g, cx - 7, 34, 14, 1, pal.gold);
     p(g, cx - 5, 29, 10, 2, pal.leatherDark);
     p(g, cx - 5, 29, 10, 1, pal.leather);
     p(g, cx - 1, 29, 2, 2, pal.gold);
@@ -495,8 +506,14 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
   const hx = cx + (side ? side : 0);
   const hy = 7;
   if (!back) {
-    p(g, hx - 6, hy + 1, 12, 11, pal.outline);
-    p(g, hx - 5, hy + 2, 10, 9, pal.skin);
+    p(g, hx - 3, hy + 1, 6, 1, pal.outline);
+    p(g, hx - 5, hy + 2, 10, 1, pal.outline);
+    p(g, hx - 6, hy + 3, 12, 6, pal.outline);
+    p(g, hx - 5, hy + 9, 10, 2, pal.outline);
+    p(g, hx - 3, hy + 11, 6, 1, pal.outline);
+    p(g, hx - 3, hy + 2, 6, 1, skinL);
+    p(g, hx - 5, hy + 3, 10, 6, pal.skin);
+    p(g, hx - 4, hy + 9, 8, 1, pal.skin);
     p(g, hx - 4, hy + 11, 8, 1, pal.outline);
     p(g, hx - 3, hy + 11, 6, 1, pal.skin);
     p(g, hx - 5, hy + 10, 10, 1, pal.skinShade);
@@ -557,6 +574,20 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, hx, hy + 3, 1, 1, goldL);
     p(g, hx - 6, hy + 8, 1, 1, pal.gold);
     p(g, hx + 5, hy + 8, 1, 1, pal.gold);
+
+    /* redraw the mouth over the fringe: two readable phoneme frames */
+    if (talk) {
+      p(g, hx - 1, hy + 10, 3, 2, pal.mouth);
+      if (f % 2 === 0) {
+        p(g, hx - 1, hy + 10, 3, 1, lip);
+        p(g, hx, hy + 11, 1, 1, '#f7d9c8');
+      } else {
+        p(g, hx, hy + 10, 1, 2, pal.outline);
+        p(g, hx, hy + 10, 1, 1, '#f7d9c8');
+      }
+      p(g, hx - 2, hy + 9, 1, 1, blush);
+      p(g, hx + 2, hy + 9, 1, 1, blush);
+    }
 
     if (hurt) {
       p(g, hx - 3, hy + 6, 2, 1, pal.eye);
@@ -2868,4 +2899,3 @@ boot();
 </script>
 </body>
 </html>
-
