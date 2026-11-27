@@ -38,6 +38,7 @@
 .touch-actions button.run-button{border-color:#83b8a0;color:#c9f0d8;min-width:48px;border-radius:8px;font-weight:700}
 .touch-actions button.run-button.active{background:#35664d;box-shadow:0 0 10px #83d6a566}
 .quest-list li.contract-heading{margin-top:8px;color:#9fd0b1;font:8px 'DM Mono',monospace;letter-spacing:.12em}
+.quest-list li.locked{opacity:.55;font-style:italic}
 .pad-badge{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:5px 10px;background:#0d1813e0;border:1px solid #6f7f5c;border-radius:20px;color:#e7e3cd;font:9px 'DM Mono',monospace;letter-spacing:.03em;z-index:3;pointer-events:none;white-space:nowrap;max-width:calc(100% - 120px);overflow:hidden;text-overflow:ellipsis}
 .pad-badge.show{display:flex}
 .pad-badge b{color:#f0dda0;font-weight:700}
@@ -56,6 +57,13 @@
   .footer{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 }
 @media (max-width:560px){
+  .topbar{gap:8px}
+  .brand{min-width:0;flex:1 1 auto;gap:8px}
+  .brand>div:last-child{min-width:0}
+  .brand-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brand-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:8px;letter-spacing:.06em}
+  .top-actions{flex:0 0 auto}
+  .top-actions .iconbtn{padding:7px 8px;font-size:9px}
   .touch-controls{display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(3,32px);gap:4px;position:absolute;left:7px;top:7px;opacity:.9;touch-action:none}
   .touch-controls button{width:34px;height:32px}
   .touch-actions button{width:42px;height:42px}
@@ -66,7 +74,7 @@
 </head>
 <body>
 <main class="game">
-<header class="topbar"><div class="brand"><div class="brand-mark">✦</div><div><div class="brand-title">CRÓNICAS DE LÚMINA</div><div class="brand-sub">EL BOSQUE SUSURRANTE · CAPÍTULO I</div></div></div><div class="top-actions"><button class="iconbtn" id="saveBtn">↧ GUARDAR</button><button class="iconbtn" id="inventoryBtn">✧ MOCHILA</button></div></header>
+<header class="topbar"><div class="brand"><div class="brand-mark">✦</div><div><div class="brand-title">CRÓNICAS DE LÚMINA</div><div class="brand-sub" id="chapterLabel">EL BOSQUE SUSURRANTE · CAPÍTULO I</div></div></div><div class="top-actions"><button class="iconbtn" id="saveBtn">↧ GUARDAR</button><button class="iconbtn" id="inventoryBtn">✧ MOCHILA</button></div></header>
 <section class="layout">
 <aside class="column left"><section class="card"><div class="eyebrow">Aventurera</div><div class="hero-line"><canvas class="avatar" id="heroAvatar" width="76" height="112" aria-label="Retrato de la heroína"></canvas><div><div class="hero-name" id="heroName">Lunaria</div><div class="hero-class" id="heroClass">Guardiana · Nv. 1</div></div></div><div class="stat-line"><span>❤ VITALIDAD</span><span id="hpText">20 / 20</span></div><div class="bar"><div class="fill hpfill" id="hpBar" style="width:100%"></div></div><div class="stat-line"><span>✦ EXPERIENCIA</span><span id="xpText">0 / 20</span></div><div class="bar"><div class="fill xpfill" id="xpBar" style="width:0%"></div></div><div class="meta"><span>◈ ORO</span><span id="goldText">12</span></div><div class="meta"><span>⚔ DAÑO</span><span id="powerText">1</span></div></section>
 <section class="card"><div class="eyebrow">Encargo actual</div><div class="quest-name" id="questName">El primer susurro</div><div class="quest-text" id="questText">Habla con la sabia Maelis junto al roble antiguo.</div><div class="quest-progress" id="questProgress">○ 0 / 1 · Maelis</div></section>
@@ -147,6 +155,8 @@ let started = false, mode = 'world', keys = {}, last = 0, clock = 0, toastTimer;
 let quest = 0, dungeonDone = false, chestOpen = false, chest2Open = false, shrineDay = 0;
 let isRunning = false, runDustTimer = 0;
 let sideQuestState = {}, sideQuestProgress = {}, questNodes = [];
+let echoDone = false;
+let bounty = { active: false, type: 'wolf', progress: 0, target: 5, tier: 0 };
 let selected = '🍎', day = 1, dayClock = 0;
 let artifact = null, artifactEquipped = false, relicInventory = [];
 let bossCd = 0, moving = false, walkPhase = 0, shake = 0, flash = 0;
@@ -187,27 +197,44 @@ const townNpcs = [
   { id: 'oren', name: 'Oren, herrero', x: 61 * T, y: 25 * T, facing: 'S', quest: 'blacksmith', key: 'oren', palette: { ...makePalette('Guardiana', '#815d49'), style: 'guardian', longHair: false, hair: '#4b3e35', hairLight: '#8b7360', hairDark: '#302722', hairMid: '#665143', skin: '#d9aa85', skinLight: '#f1c7a0', skinShade: '#aa735a', tunic: '#59616a', tunicLight: '#838e93', tunicShade: '#343b43', leather: '#6a432e', accent: '#d28b5b', accentLight: '#f6c789', accentDark: '#784632', facialHair: true }, opt: { weapon: true, pauldrons: true } },
   { id: 'nara', name: 'Nara, herbolaria', x: 70 * T, y: 51 * T, facing: 'S', quest: 'herbs', key: 'nara', palette: { ...makePalette('Maga', '#518361'), style: 'mage', hair: '#a74f47', hairLight: '#ed9b72', hairDark: '#65333d', hairMid: '#c56f5b', iris: '#6c9a4d', tunic: '#536c45', tunicLight: '#8baa63', tunicShade: '#354a36', robe: '#526a43', robeLight: '#91ae68', robeShade: '#374934', accent: '#dfc96f', accentLight: '#fff1aa', accentDark: '#728142', blush: '#dd8b75' }, opt: { staff: true, robe: true } },
   { id: 'ivo', name: 'Ivo, juglar errante', x: 84 * T, y: 74 * T, facing: 'S', quest: 'wolves', key: 'ivo', palette: { ...makePalette('Exploradora', '#914c60'), style: 'ranger', longHair: false, hair: '#382d43', hairLight: '#7a5277', hairDark: '#211d32', hairMid: '#574064', skin: '#e7bd9e', skinLight: '#ffe0bd', skinShade: '#bd8b75', tunic: '#814e62', tunicLight: '#b77a78', tunicShade: '#533449', accent: '#ecc16d', accentLight: '#fff0b5', accentDark: '#805343', iris: '#7e9dba' }, opt: { instrument: true } },
-  { id: 'kumo', name: 'Kumo, guardabosques', x: 43 * T, y: 53 * T, facing: 'S', quest: 'slimes', key: 'kumo', palette: { ...makePalette('Guardiana', '#596c47'), style: 'guardian', longHair: false, hair: '#d0bd8e', hairLight: '#f2dfa9', hairDark: '#796b4b', hairMid: '#b19b6d', skin: '#c68f68', skinLight: '#e5b18a', skinShade: '#95654e', tunic: '#55634a', tunicLight: '#8b9a64', tunicShade: '#343f34', accent: '#d7b85f', accentLight: '#f9e5a0', accentDark: '#6b5737', facialHair: true }, opt: { weapon: true } }
+  { id: 'kumo', name: 'Kumo, guardabosques', x: 43 * T, y: 53 * T, facing: 'S', quest: 'slimes', key: 'kumo', palette: { ...makePalette('Guardiana', '#596c47'), style: 'guardian', longHair: false, hair: '#d0bd8e', hairLight: '#f2dfa9', hairDark: '#796b4b', hairMid: '#b19b6d', skin: '#c68f68', skinLight: '#e5b18a', skinShade: '#95654e', tunic: '#55634a', tunicLight: '#8b9a64', tunicShade: '#343f34', accent: '#d7b85f', accentLight: '#f9e5a0', accentDark: '#6b5737', facialHair: true }, opt: { weapon: true } },
+  { id: 'sable', name: 'Sable, centinela del brezal', x: 84 * T, y: 80 * T, facing: 'S', quest: 'echoes', key: 'sable', palette: { ...makePalette('Guardiana', '#3f6f6a'), style: 'guardian', longHair: false, hair: '#d7d2c0', hairLight: '#f4f0df', hairDark: '#8a877a', hairMid: '#b6b2a1', skin: '#c99a78', skinLight: '#e8bc98', skinShade: '#9c6e55', iris: '#7fd8c4', tunic: '#3f5a55', tunicLight: '#6f8f85', tunicShade: '#263b38', accent: '#9be8d4', accentLight: '#d8fff4', accentDark: '#3d7a70', facialHair: true }, opt: { weapon: true, pauldrons: true, scarf: true } },
+  { id: 'timo', name: 'Timo, el niño perdido', x: 34 * T, y: 69 * T, facing: 'S', quest: 'toys', key: 'timo', palette: { ...makePalette('Exploradora', '#8a6a3f'), style: 'ranger', longHair: false, hair: '#a86a3c', hairLight: '#d99a5c', hairDark: '#5f3a22', hairMid: '#8a5530', skin: '#eec19e', skinLight: '#ffe0bd', skinShade: '#c08f72', iris: '#5f8f5a', tunic: '#7a6a45', tunicLight: '#a89564', tunicShade: '#51452e', accent: '#e8c96a', accentLight: '#fff0ad', accentDark: '#806b38' }, opt: { bag: true, hat: true, scarf: true } },
+  { id: 'yara', name: 'Yara, alquimista', x: 56 * T, y: 81 * T, facing: 'S', quest: 'moths', key: 'yara', palette: { ...makePalette('Maga', '#7a4f6e'), style: 'mage', hair: '#3f2e45', hairLight: '#715a78', hairDark: '#241a2c', hairMid: '#553f5e', skin: '#d9a882', skinLight: '#f5c9a6', skinShade: '#aa7a5f', iris: '#c9a04f', tunic: '#5b4a63', tunicLight: '#8a6f93', tunicShade: '#3b2e42', robe: '#5b4a63', robeLight: '#8a6f93', robeShade: '#3b2e42', accent: '#e0b45f', accentLight: '#ffe6a3', accentDark: '#7a5a34', blush: '#d98b7f' }, opt: { staff: true, robe: true, apron: true } },
+  { id: 'bruno', name: 'Bruno, leñador', x: 87 * T, y: 59 * T, facing: 'S', quest: 'wood', key: 'bruno', palette: { ...makePalette('Guardiana', '#6a4a32'), style: 'guardian', longHair: false, hair: '#5a3a24', hairLight: '#8f623c', hairDark: '#362214', hairMid: '#714a2e', skin: '#d2a07a', skinLight: '#f0c39b', skinShade: '#a47456', tunic: '#5d4a36', tunicLight: '#8d7352', tunicShade: '#3d3024', accent: '#c98f4f', accentLight: '#f0c88a', accentDark: '#6f4a2c', facialHair: true }, opt: { axe: true, apron: true, scarf: true } },
+  { id: 'runa', name: 'Runa, cazadora de ecos', x: 50 * T, y: 56 * T, facing: 'S', quest: 'bounty', key: 'runa', palette: { ...makePalette('Exploradora', '#4f6f8a'), style: 'ranger', longHair: false, hair: '#2f2a3a', hairLight: '#5c5470', hairDark: '#1c1924', hairMid: '#453e55', skin: '#d8a47f', skinLight: '#f4c6a1', skinShade: '#a9755a', iris: '#7fd8c4', tunic: '#405a63', tunicLight: '#6f8f95', tunicShade: '#2a3c42', accent: '#d8b86a', accentLight: '#f7e5a2', accentDark: '#7a6234' }, opt: { bow: true, hood: true, scarf: true } }
 ];
 const sideQuestDefs = [
-  { id: 'cartography', npc: 'talia', title: 'Los caminos perdidos', target: 3, noun: 'mojones antiguos', intro: 'He trazado el bosque entero, pero tres mojones rúnicos se borraron del mapa. Encuéntralos siguiendo las sendas del sur y volveré a dibujar un camino seguro.', done: '¡Las rutas vuelven a tener sentido! Ya puedo guiar a cualquiera que se pierda en Lúmina.', rewardXp: 24, rewardGold: 18, nodeKind: 'marker', nodeIcon: '⌖', nodeColor: '#9ee5dc' },
-  { id: 'blacksmith', npc: 'oren', title: 'Hierro para un juramento', target: 4, noun: 'fragmentos de hierro', intro: 'La fragua se apagará si no consigo hierro de veta. Hay fragmentos entre las rocas del camino viejo. Tráeme cuatro y forjaré algo digno de tu viaje.', done: 'Buen metal y buen temple. Toma estas monedas; la hoja que llevas resistirá mejor el camino.', rewardXp: 30, rewardGold: 26, nodeKind: 'ore', nodeIcon: '◆', nodeColor: '#d5c4a3' },
-  { id: 'herbs', npc: 'nara', title: 'Un remedio para el río', target: 4, noun: 'flores de rocío', intro: 'El agua está perdiendo su brillo. Necesito cuatro flores de rocío para preparar un bálsamo que despierte sus raíces. Crecen donde la sombra toca el claro.', done: 'El bálsamo ya canta. Llévate una poción y recuerda: sanar también es una forma de valentía.', rewardXp: 26, rewardGold: 16, nodeKind: 'herb', nodeIcon: '✿', nodeColor: '#c6ec9b' },
-  { id: 'wolves', npc: 'ivo', title: 'La balada de los colmillos', target: 4, noun: 'lobos del brezal', enemy: 'wolf', intro: 'Mi última balada acabó con un aullido. El brezal está lleno de lobos inquietos; calma a cuatro y escribiré una canción con tu nombre.', done: '¡Una melodía nueva! La llamaré “La guardiana del brezal”. Y esta bolsa de oro es tu primer aplauso.', rewardXp: 38, rewardGold: 32 },
-  { id: 'slimes', npc: 'kumo', title: 'Limpieza del sotobosque', target: 5, noun: 'limos errantes', enemy: 'slime', intro: 'Los limos están devorando los brotes jóvenes. Acaba con cinco antes de que alcancen el sendero. No son malvados, solo tienen hambre de magia.', done: 'El sotobosque vuelve a respirar. Has luchado con cuidado; acepta estas semillas como agradecimiento.', rewardXp: 34, rewardGold: 20 }
+  { id: 'cartography', npc: 'talia', title: 'Los caminos perdidos', target: 3, noun: 'mojones antiguos', intro: 'He trazado el bosque entero, pero tres mojones rúnicos se borraron del mapa. Encuéntralos siguiendo las sendas del sur y volveré a dibujar un camino seguro.', done: '¡Las rutas vuelven a tener sentido! Ya puedo guiar a cualquiera que se pierda en Lúmina.', rewardXp: 24, rewardGold: 18, nodeKind: 'marker', nodeIcon: '⌖', nodeColor: '#9ee5dc', chapter: 1 },
+  { id: 'blacksmith', npc: 'oren', title: 'Hierro para un juramento', target: 4, noun: 'fragmentos de hierro', intro: 'La fragua se apagará si no consigo hierro de veta. Hay fragmentos entre las rocas del camino viejo. Tráeme cuatro y forjaré algo digno de tu viaje.', done: 'Buen metal y buen temple. Toma estas monedas; la hoja que llevas resistirá mejor el camino.', rewardXp: 30, rewardGold: 26, nodeKind: 'ore', nodeIcon: '◆', nodeColor: '#d5c4a3', chapter: 1 },
+  { id: 'herbs', npc: 'nara', title: 'Un remedio para el río', target: 4, noun: 'flores de rocío', intro: 'El agua está perdiendo su brillo. Necesito cuatro flores de rocío para preparar un bálsamo que despierte sus raíces. Crecen donde la sombra toca el claro.', done: 'El bálsamo ya canta. Llévate una poción y recuerda: sanar también es una forma de valentía.', rewardXp: 26, rewardGold: 16, nodeKind: 'herb', nodeIcon: '✿', nodeColor: '#c6ec9b', chapter: 1 },
+  { id: 'wolves', npc: 'ivo', title: 'La balada de los colmillos', target: 4, noun: 'lobos del brezal', enemy: 'wolf', intro: 'Mi última balada acabó con un aullido. El brezal está lleno de lobos inquietos; calma a cuatro y escribiré una canción con tu nombre.', done: '¡Una melodía nueva! La llamaré “La guardiana del brezal”. Y esta bolsa de oro es tu primer aplauso.', rewardXp: 38, rewardGold: 32, chapter: 1 },
+  { id: 'slimes', npc: 'kumo', title: 'Limpieza del sotobosque', target: 5, noun: 'limos errantes', enemy: 'slime', intro: 'Los limos están devorando los brotes jóvenes. Acaba con cinco antes de que alcancen el sendero. No son malvados, solo tienen hambre de magia.', done: 'El sotobosque vuelve a respirar. Has luchado con cuidado; acepta estas semillas como agradecimiento.', rewardXp: 34, rewardGold: 20, chapter: 1 },
+  { id: 'toys', npc: 'timo', title: 'Los juguetes del claro', target: 3, noun: 'juguetes perdidos', intro: 'Me quedé dormido junto al río y mis tres juguetes se perdieron entre los musgos. ¿Me ayudas a encontrarlos? No me atrevo a ir solo al bosque.', done: '¡Mis juguetes! Ahora puedo volver a casa antes de que anochezca. Toma estas manzanas; mi madre las guardaba para un día especial.', rewardXp: 20, rewardGold: 14, nodeKind: 'toy', nodeIcon: '✦', nodeColor: '#f2d58a', chapter: 2 },
+  { id: 'moths', npc: 'yara', title: 'Polvo de luna', target: 5, noun: 'polillas lunares', enemy: 'moth', intro: 'Necesito polvo de polilla lunar para un remedio que devuelva el color al brezal. Cinco bastarán. No las mates por gusto: su luz es parte del bosque.', done: 'El polvo brilla como una constelación. Toma dos pociones y este consejo: la prisa no cura, solo esconde.', rewardXp: 32, rewardGold: 24, chapter: 2 },
+  { id: 'wood', npc: 'bruno', title: 'Leña para el invierno', target: 4, noun: 'troncos secos', intro: 'El invierno llega pronto y mi carreta se rompió en el barro. Cuatro troncos secos del brezal y podré repararla antes de que caiga la nieve.', done: '¡Buen trabajo! La carreta volverá a rodar. Toma oro y un poco de mi temple: los huesos también se fortalecen con el esfuerzo.', rewardXp: 26, rewardGold: 18, nodeKind: 'wood', nodeIcon: '▤', nodeColor: '#c9a06a', chapter: 2 },
+  { id: 'echoes', npc: 'sable', title: 'El eco del guardián', target: 1, noun: 'eco del guardián', intro: 'Desde que cayó el guardián, algo antiguo late bajo el brezal. Un eco con su forma recorre la maleza y devora la luz. Si lo dejas crecer, llegará al prado. Acaba con él en el extremo sureste.', done: 'El brezal respira otra vez. Has hecho más de lo que ningún mapa puede contar. Lleva este eco de plata: es tuyo.', rewardXp: 80, rewardGold: 60, chapter: 2 }
 ];
 const questNodeSeeds = [
   ['map-a', 'cartography', 24, 43], ['map-b', 'cartography', 51, 51], ['map-c', 'cartography', 68, 68],
   ['ore-a', 'blacksmith', 56, 39], ['ore-b', 'blacksmith', 63, 48], ['ore-c', 'blacksmith', 77, 57], ['ore-d', 'blacksmith', 81, 70],
-  ['herb-a', 'herbs', 29, 59], ['herb-b', 'herbs', 51, 67], ['herb-c', 'herbs', 73, 59], ['herb-d', 'herbs', 87, 81]
+  ['herb-a', 'herbs', 29, 59], ['herb-b', 'herbs', 51, 67], ['herb-c', 'herbs', 73, 59], ['herb-d', 'herbs', 87, 81],
+  ['toy-a', 'toys', 26, 67], ['toy-b', 'toys', 39, 74], ['toy-c', 'toys', 62, 79],
+  ['wood-a', 'wood', 84, 57], ['wood-b', 'wood', 89, 64], ['wood-c', 'wood', 79, 83], ['wood-d', 'wood', 68, 73]
 ];
 const questNodePositions = questNodeSeeds.map(([id, questId, x, y]) => ({ id, questId, x: x * T, y: y * T, collected: false }));
 const chest = { x: 17 * T, y: 22 * T };
 const chest2 = { x: 82 * T, y: 14 * T };
 const shrine = { x: 74 * T, y: 22 * T };
 const gate = { x: 48 * T, y: 31 * T };
+const echoBoss = { x: 91 * T, y: 89 * T, hp: 42, max: 42, alive: true, active: false, touchCd: 0 };
 const CLEARINGS = [npc, npc2, chest, chest2, shrine, gate, ...townNpcs, ...questNodePositions]
-  .map(o => ({ x: o.x / T, y: o.y / T, r: o.questId ? 2 : 2.7 }));
+  .map(o => ({ x: o.x / T, y: o.y / T, r: o.questId ? 2 : 2.7 }))
+  .concat([{ x: echoBoss.x / T, y: echoBoss.y / T, r: 7 }])
+  .concat([
+    { x: 83, y: 86, r: 2 }, { x: 69, y: 86, r: 2 }, { x: 58, y: 70, r: 2 },
+    { x: 64, y: 62, r: 2 }, { x: 91, y: 70, r: 2 }, { x: 46, y: 78, r: 2 }
+  ]);
 const boss = { x: 120, y: 51, hp: 14, max: 14, alive: true };
 const mobs = [
   { x: 22 * T, y: 14 * T, hp: 3, max: 3, type: 'slime', alive: true },
@@ -224,7 +251,13 @@ const mobs = [
   { x: 35 * T, y: 63 * T, hp: 6, max: 6, type: 'wolf', alive: true },
   { x: 76 * T, y: 79 * T, hp: 5, max: 5, type: 'slime', alive: true },
   { x: 52 * T, y: 75 * T, hp: 5, max: 5, type: 'moth', alive: true },
-  { x: 88 * T, y: 61 * T, hp: 7, max: 7, type: 'wolf', alive: true }
+  { x: 88 * T, y: 61 * T, hp: 7, max: 7, type: 'wolf', alive: true },
+  { x: 83 * T, y: 86 * T, hp: 7, max: 7, type: 'wolf', alive: true },
+  { x: 69 * T, y: 86 * T, hp: 6, max: 6, type: 'slime', alive: true },
+  { x: 58 * T, y: 70 * T, hp: 5, max: 5, type: 'moth', alive: true },
+  { x: 64 * T, y: 62 * T, hp: 6, max: 6, type: 'wolf', alive: true },
+  { x: 91 * T, y: 70 * T, hp: 6, max: 6, type: 'moth', alive: true },
+  { x: 46 * T, y: 78 * T, hp: 5, max: 5, type: 'slime', alive: true }
 ];
 const dungeonMobs = [
   { x: 65, y: 75, hp: 3, max: 3, type: 'slime', alive: true },
@@ -233,6 +266,12 @@ const dungeonMobs = [
 
 const ROOT_RELIC = { id: 'root', name: 'Corazón de Raíz', icon: '💠', power: 2, speed: 0, desc: 'Late con la savia del bosque. +2 daño.' };
 const MOTH_RELIC = { id: 'moth', name: 'Ala de Polilla', icon: '🦋', power: 1, speed: 8, desc: 'Ligera como el polvo lunar. +1 daño y +8 velocidad.' };
+const ECHO_RELIC = { id: 'echo', name: 'Eco de Plata', icon: '🌌', power: 2, speed: 5, desc: 'Un eco que corre más rápido que la memoria. +2 daño y +5 velocidad.' };
+const BOUNTY_TYPES = [
+  { type: 'slime', name: 'limos errantes', label: 'Limos errantes' },
+  { type: 'moth', name: 'polillas lunares', label: 'Polillas lunares' },
+  { type: 'wolf', name: 'lobos del brezal', label: 'Lobos del brezal' }
+];
 
 /* ── palettes ──────────────────────────────────────────────────────────── */
 function makePalette(role, cloakColor) {
@@ -450,6 +489,15 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     }
   }
 
+  if (opt.scarf) {
+    p(g, cx - 4, 20, 8, 2, pal.accentDark);
+    p(g, cx - 4, 20, 8, 1, pal.accent);
+    p(g, cx - 3, 21, 5, 1, pal.accentLight);
+    p(g, cx + 1, 21, 3, 2, pal.accentDark);
+    p(g, cx + 2, 23, 2, 5, pal.accent);
+    p(g, cx + 3, 24, 1, 3, pal.accentLight);
+  }
+
   /* belt, buckle and pouch */
   p(g, cx - 5, 28, 10, 2, pal.leatherDark);
   p(g, cx - 5, 28, 10, 1, pal.leather);
@@ -459,6 +507,13 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, cx + 2, 30, 3, 3, pal.leather);
     p(g, cx + 2, 30, 3, 1, shade(pal.leather, 0.22));
     p(g, cx + 3, 30, 1, 1, pal.gold);
+  }
+  if (opt.bag) {
+    p(g, cx + 3, 28, 1, 4, pal.leatherDark);
+    p(g, cx + 4, 30, 4, 5, pal.leatherDark);
+    p(g, cx + 5, 31, 3, 3, pal.leather);
+    p(g, cx + 5, 31, 3, 1, pal.gold);
+    p(g, cx + 6, 32, 1, 1, pal.goldDark);
   }
 
   /* tunic skirt */
@@ -503,6 +558,18 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, cx + 3, 38, 3, 1, pal.gold);
     p(g, cx - 5, 39, 2, 1, pal.robeLight);
     p(g, cx + 3, 39, 2, 1, pal.robeShade);
+  }
+
+  if (opt.apron) {
+    p(g, cx - 4, 22, 8, 2, pal.leatherDark);
+    p(g, cx - 4, 24, 8, 9, pal.leatherDark);
+    p(g, cx - 3, 24, 6, 8, pal.leather);
+    p(g, cx - 3, 24, 6, 1, shade(pal.leather, 0.2));
+    p(g, cx - 1, 26, 2, 4, pal.goldDark);
+    p(g, cx - 1, 26, 1, 4, pal.gold);
+    p(g, cx - 4, 32, 8, 1, pal.leatherDark);
+    p(g, cx - 3, 20, 1, 3, pal.leatherDark);
+    p(g, cx + 2, 20, 1, 3, pal.leatherDark);
   }
 
   /* back cloak */
@@ -687,6 +754,26 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, hx + 5, hy + 5, 1, 3, pal.hairDark);
     p(g, hx + 4, hy + 7, 1, 2, hairMid);
 
+    if (opt.hat) {
+      p(g, hx - 9, hy + 2, 18, 2, pal.leatherDark);
+      p(g, hx - 8, hy + 1, 16, 1, pal.leather);
+      p(g, hx - 6, hy - 2, 12, 3, pal.leatherDark);
+      p(g, hx - 5, hy - 2, 10, 2, pal.leather);
+      p(g, hx - 5, hy, 10, 1, pal.accentDark);
+      p(g, hx - 1, hy - 1, 2, 1, pal.accentLight);
+      p(g, hx + 4, hy + 1, 3, 1, pal.accent);
+    }
+    if (opt.hood) {
+      p(g, hx - 9, hy - 2, 18, 3, pal.cloakDark);
+      p(g, hx - 9, hy + 1, 3, 9, pal.cloakDark);
+      p(g, hx + 6, hy + 1, 3, 9, pal.cloakDark);
+      p(g, hx - 8, hy - 1, 16, 2, pal.cloak);
+      p(g, hx - 8, hy + 1, 2, 8, pal.cloak);
+      p(g, hx + 6, hy + 1, 2, 8, pal.cloak);
+      p(g, hx - 6, hy + 9, 12, 1, pal.cloakShade);
+      p(g, hx - 1, hy - 2, 2, 1, pal.gold);
+    }
+
     /* redraw the mouth over the fringe: two readable phoneme frames */
     if (talk) {
       p(g, hx - 1, hy + 10, 3, 2, pal.mouth);
@@ -765,6 +852,23 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, cx + 6, 27, 1, 1, pal.gold);
     p(g, cx + 8, 27, 1, 1, pal.gold);
     p(g, cx + 4, 22, 2, 1, pal.leather);
+  }
+
+  if (opt.axe) {
+    const ax = side > 0 ? cx + 8 : cx - 11;
+    p(g, ax + 1, 23, 2, 19, pal.leatherDark);
+    p(g, ax + 1, 23, 1, 19, shade(pal.leatherDark, 0.24));
+    poly(g, [[ax - 4, 21], [ax + 5, 19], [ax + 8, 24], [ax - 1, 27]], pal.metalDark);
+    poly(g, [[ax - 2, 22], [ax + 4, 20], [ax + 6, 24], [ax, 26]], pal.metal);
+    p(g, ax + 1, 21, 2, 1, pal.white);
+    p(g, ax + 1, 25, 3, 1, pal.gold);
+  }
+  if (opt.bow) {
+    const bx = side > 0 ? cx + 8 : cx - 10;
+    poly(g, [[bx, 19], [bx + 2, 21], [bx + 3, 27], [bx + 1, 34], [bx, 35], [bx + 2, 34], [bx + 4, 27], [bx + 2, 21]], pal.leatherDark);
+    poly(g, [[bx, 20], [bx + 1, 22], [bx + 2, 27], [bx + 1, 33], [bx, 34], [bx + 1, 32], [bx + 2, 27], [bx + 1, 22]], pal.leather);
+    p(g, bx + 2, 22, 1, 11, pal.goldLight);
+    p(g, bx + 2, 27, 2, 1, pal.accent);
   }
 
   /* rim light */
@@ -1122,6 +1226,69 @@ function buildBoss() {
 }
 const BOSS_SPRITES = buildBoss();
 
+/* ── chapter II world boss ──────────────────────────────────────────────── */
+function buildEchoBoss() {
+  const frames = [];
+  for (let f = 0; f < 2; f++) {
+    const s = sprite(72, 72), g = s.g;
+    const bob = f, step = f ? 1 : -1;
+    g.save();
+    g.translate(0, bob);
+    // spectral tail
+    poly(g, [[15, 38], [7, 30], [4, 19], [9, 22], [12, 32], [18, 36]], '#2c4a48');
+    p(g, 5, 19, 4, 2, '#7fd8c4');
+    // hind legs
+    p(g, 18, 42, 5, 18 + step, '#1a2a2c');
+    p(g, 18, 58 + step, 7, 3, '#0f1a1c');
+    p(g, 48, 42, 5, 18 - step, '#1a2a2c');
+    p(g, 47, 58 - step, 7, 3, '#0f1a1c');
+    // body
+    poly(g, [[16, 32], [48, 30], [54, 42], [48, 52], [22, 54], [12, 44]], '#162628');
+    poly(g, [[18, 34], [46, 32], [50, 42], [44, 50], [24, 52], [16, 44]], '#2f5550');
+    p(g, 20, 36, 24, 8, '#3d6f65');
+    p(g, 22, 34, 18, 4, '#5d9a88');
+    for (let i = 0; i < 4; i++) p(g, 24 + i * 5, 38, 2, 6, '#7fd8c4');
+    // chest and neck
+    poly(g, [[42, 30], [54, 24], [58, 34], [48, 42]], '#2f5550');
+    p(g, 46, 26, 8, 10, '#3d6f65');
+    // head and snout
+    poly(g, [[48, 18], [60, 14], [66, 20], [64, 28], [56, 30], [48, 26]], '#162628');
+    poly(g, [[50, 19], [59, 16], [63, 21], [61, 26], [55, 27], [49, 24]], '#3d6f65');
+    p(g, 52, 20, 8, 3, '#5d9a88');
+    p(g, 62, 22, 6, 3, '#2f5550');
+    p(g, 67, 23, 2, 1, '#0f1a1c');
+    // eyes
+    p(g, 55, 20, 3, 2, '#a8ffe9');
+    p(g, 56, 20, 1, 1, '#ffffff');
+    // antlers
+    p(g, 52, 15, 2, 7, '#d9c27a');
+    p(g, 58, 13, 2, 8, '#d9c27a');
+    poly(g, [[52, 14], [46, 6], [45, 3], [48, 5], [53, 12]], '#b89a5a');
+    poly(g, [[53, 11], [57, 4], [59, 2], [58, 6], [55, 12]], '#b89a5a');
+    poly(g, [[58, 13], [64, 6], [67, 4], [65, 8], [61, 15]], '#b89a5a');
+    poly(g, [[60, 10], [64, 8], [68, 9], [64, 11]], '#b89a5a');
+    p(g, 47, 6, 2, 1, '#a8ffe9');
+    p(g, 58, 4, 1, 1, '#a8ffe9');
+    p(g, 65, 7, 1, 1, '#a8ffe9');
+    // front legs
+    p(g, 30, 48, 5, 14 + step, '#1a2a2c');
+    p(g, 29, 60 + step, 7, 3, '#0f1a1c');
+    p(g, 42, 48, 5, 14 - step, '#1a2a2c');
+    p(g, 41, 60 - step, 7, 3, '#0f1a1c');
+    p(g, 30, 60 + step, 5, 1, '#4f7f72');
+    p(g, 42, 60 - step, 5, 1, '#4f7f72');
+    // mane and drifting runes
+    for (let i = 0; i < 6; i++) p(g, 44 + i * 2, 26 + i, '#7fd8c4');
+    p(g, 10, 26, 1, 1, '#a8ffe9');
+    p(g, 64, 34, 1, 1, '#a8ffe9');
+    p(g, 22, 20, 1, 1, '#7fd8c4');
+    g.restore();
+    frames.push(s.c);
+  }
+  return frames;
+}
+const ECHO_SPRITES = buildEchoBoss();
+
 /* ── props ─────────────────────────────────────────────────────────────── */
 function buildChest(open) {
   const s = sprite(32, 28), g = s.g;
@@ -1294,6 +1461,7 @@ function renderRelics() {
 }
 function updateUI() {
   $('heroName').textContent = hero.name;
+  if ($('chapterLabel')) $('chapterLabel').textContent = quest >= 4 || echoDone ? 'EL BREZAL DE LOS ECOS · CAPÍTULO II' : 'EL BOSQUE SUSURRANTE · CAPÍTULO I';
   $('heroClass').textContent = `${hero.role} · Nv. ${hero.level}`;
   $('hpText').textContent = `${Math.max(0, hero.hp)} / ${hero.maxHp}`;
   $('hpBar').style.width = `${clamp(100 * hero.hp / hero.maxHp, 0, 100)}%`;
@@ -1316,13 +1484,27 @@ function updateUI() {
   updateDayText();
 }
 function updateQuestUI() {
-  const q = [
+  let q = [
     ['El primer susurro', 'Habla con la sabia Maelis junto al roble antiguo.', `○ ${quest ? 1 : 0} / 1 · Maelis`],
     ['Hojas para el invierno', 'Recoge una hoja de luna en el claro y llévasela a Maelis.', `○ ${hero.inventory['🌿'] ? 1 : 0} / 1 · Hoja de luna`],
     ['A las Catacumbas', 'Busca las Catacumbas de Raíz al este del claro.', `○ ${dungeonDone ? 1 : 0} / 1 · Entrada`],
     ['El guardián dormido', 'Derrota al guardián y trae su cristal a Maelis.', `○ ${hero.inventory['🔷'] ? 1 : 0} / 1 · Cristal`],
     ['Leyenda de Lúmina', 'El bosque vuelve a estar en paz. Sigue explorando.', '✦ Encargo completado']
   ][clamp(quest, 0, 4)];
+  if (quest >= 4) {
+    const echoState = sideQuestState.echoes || 0;
+    if (echoDone && (sideQuestState.echoes || 0) === 1) {
+      q = ['El Brezal de los Ecos', 'Habla con Sable para cerrar el capítulo.', '◈ 1 / 1 · Sable'];
+    } else if (echoDone) {
+      q = ['Rondas del brezal', 'Runa ofrece cacerías repetibles en el brezal.', bounty.active ? `◈ ${bounty.progress}/${bounty.target} · Ronda ${bounty.tier + 1}` : '○ Habla con Runa'];
+    } else if (echoState === 0) {
+      q = ['El Brezal de los Ecos', 'Habla con Sable, centinela del brezal, en el sureste.', '○ 0 / 1 · Sable'];
+    } else if (echoState === 1) {
+      q = ['El eco del guardián', 'Derrota al Eco del Guardián en el extremo sureste del brezal.', `○ ${echoBoss.alive ? 0 : 1} / 1 · Eco`];
+    } else {
+      q = ['El Brezal de los Ecos', 'El brezal vuelve a respirar. Explora sus secretos.', '✦ Capítulo completado'];
+    }
+  }
   $('questName').textContent = q[0];
   $('questText').textContent = q[1];
   $('questProgress').textContent = q[2];
@@ -1331,19 +1513,28 @@ function updateQuestUI() {
     <li class="${dungeonDone ? 'done' : ''}">${dungeonDone ? '✓' : '○'} Encuentra las Catacumbas de Raíz.</li>
     <li class="${hero.inventory['🔷'] ? 'done' : ''}">${hero.inventory['🔷'] ? '✓' : '○'} ${hero.inventory['🔷'] ? 'Reliquia recuperada' : 'Derrota al guardián de la mazmorra.'}</li>
     <li class="${quest >= 4 ? 'done' : ''}">${quest >= 4 ? '✓' : '○'} ${quest >= 4 ? 'La leyenda de Lúmina' : 'Completa la historia con Maelis.'}</li>`;
-  const contracts = sideQuestDefs.map(d => {
+  const renderContract = d => {
     const state = sideQuestState[d.id] || 0;
     const progress = sideQuestProgress[d.id] || 0;
     const mark = state === 2 ? '✓' : state === 1 ? '◈' : '○';
     const detail = state === 2 ? 'Completado' : state === 1 ? `${progress}/${d.target} ${d.noun}` : `Habla con ${d.npc[0].toUpperCase()}${d.npc.slice(1)} para aceptar`;
     return `<li class="${state === 2 ? 'done' : ''}"><b>${mark} ${esc(d.title)}</b><br>${esc(detail)}</li>`;
-  }).join('');
-  $('journalList').innerHTML = `${mainEntries}<li class="contract-heading"><b>CONTRATOS · SENDA DEL SUR</b></li>${contracts}`;
+  };
+  const chapter1 = sideQuestDefs.filter(d => d.chapter !== 2).map(renderContract).join('');
+  const chapter2 = sideQuestDefs.filter(d => d.chapter === 2).map(renderContract).join('');
+  const info = BOUNTY_TYPES.find(b => b.type === bounty.type) || BOUNTY_TYPES[0];
+  const bountyEntry = `<li class="${bounty.active ? '' : 'done'}"><b>${bounty.active ? '◈' : '○'} Ronda del brezal${bounty.tier ? ` · ${bounty.tier}` : ''}</b><br>${bounty.active ? `${bounty.progress}/${bounty.target} ${info.name}` : 'Habla con Runa para cazar'}</li>`;
+  const chapter2Block = quest >= 4
+    ? `<li class="contract-heading"><b>CAPÍTULO II · BREZAL DE LOS ECOS</b></li>${chapter2}${bountyEntry}`
+    : `<li class="contract-heading"><b>CAPÍTULO II · BREZAL DE LOS ECOS</b></li><li class="locked">Completa la historia principal para abrir el brezal.</li>`;
+  $('journalList').innerHTML = `${mainEntries}<li class="contract-heading"><b>CONTRATOS · SENDA DEL SUR</b></li>${chapter1}${chapter2Block}`;
 }
 function resetSideQuests() {
   sideQuestState = Object.fromEntries(sideQuestDefs.map(q => [q.id, 0]));
   sideQuestProgress = Object.fromEntries(sideQuestDefs.map(q => [q.id, 0]));
   questNodes = questNodePositions.map(n => ({ ...n, collected: false }));
+  echoDone = false;
+  bounty = { active: false, type: 'wolf', progress: 0, target: 5, tier: 0 };
 }
 function dayLabel() {
   const p = dayClock % 110;
@@ -1373,8 +1564,20 @@ function showDialog(title, body, key, buttons) {
   });
   overlay('dialogOverlay');
 }
-function showEnding() {
+function showEnding(chapter = 1) {
   const relic = artifact ? `${artifact.icon} ${esc(artifact.name)}` : 'Ninguna';
+  const modal = $('endingOverlay');
+  const kicker = modal.querySelector('.kicker');
+  const title = modal.querySelector('h1');
+  if (chapter === 2) {
+    kicker.textContent = 'CAPÍTULO II · COMPLETADO';
+    title.textContent = 'El Brezal de los Ecos';
+    $('endingText').textContent = 'El eco se deshace en luz y el brezal vuelve a latir. Los habitantes del sur recordarán a quien escuchó sus historias y caminó hasta el final.';
+  } else {
+    kicker.textContent = 'CAPÍTULO I · COMPLETADO';
+    title.textContent = 'La leyenda de Lúmina';
+    $('endingText').textContent = 'El cristal vuelve a latir y el bosque recupera su voz. Tu nombre quedará escrito entre las raíces y las estrellas.';
+  }
   $('endingStats').innerHTML = `
     <span>HEROÍNA<b>${esc(hero.name)}</b></span>
     <span>VOCACIÓN<b>${esc(hero.role)} · Nv. ${hero.level}</b></span>
@@ -1391,12 +1594,14 @@ function saveGame(silent) {
   try {
     const saveHero = { ...hero, x: mode === 'dungeon' ? worldReturn.x : hero.x, y: mode === 'dungeon' ? worldReturn.y : hero.y };
     const data = {
-      v: 4, hero: saveHero, quest, dungeonDone, chestOpen, chest2Open, shrineDay, day, dayClock,
+      v: 5, hero: saveHero, quest, dungeonDone, chestOpen, chest2Open, shrineDay, day, dayClock,
       bossAlive: boss.alive, bossHp: boss.hp, bossX: boss.x, bossY: boss.y,
       mobs: mobs.map(m => ({ alive: m.alive, hp: m.hp })),
       dungeonMobs: dungeonMobs.map(m => ({ alive: m.alive, hp: m.hp })),
       relicInventory, artifactId: artifact ? artifact.id : null, artifactEquipped,
-      sideQuestState, sideQuestProgress, questNodes: questNodes.map(n => n.collected)
+      sideQuestState, sideQuestProgress, questNodes: questNodes.map(n => n.collected),
+      echoDone, bounty: { ...bounty },
+      echoBoss: { alive: echoBoss.alive, hp: echoBoss.hp, x: echoBoss.x, y: echoBoss.y, active: echoBoss.active }
     };
     localStorage.setItem('lumina-save', JSON.stringify(data));
     updateContinueButton();
@@ -1438,6 +1643,26 @@ function loadGame() {
     Object.assign(sideQuestState, d.sideQuestState || {});
     Object.assign(sideQuestProgress, d.sideQuestProgress || {});
     if (Array.isArray(d.questNodes)) questNodes.forEach((n, i) => { n.collected = !!d.questNodes[i]; });
+    echoDone = !!d.echoDone;
+    if (d.bounty && typeof d.bounty === 'object') {
+      bounty = { ...bounty, ...d.bounty };
+      if (!BOUNTY_TYPES.some(b => b.type === bounty.type)) bounty.type = 'wolf';
+      bounty.target = Math.max(1, Number(bounty.target) || 5);
+      bounty.progress = clamp(Number(bounty.progress) || 0, 0, bounty.target);
+      bounty.tier = Math.max(0, Number(bounty.tier) || 0);
+      bounty.active = !!bounty.active;
+    }
+    if (d.echoBoss && typeof d.echoBoss === 'object') {
+      echoBoss.alive = d.echoBoss.alive !== false;
+      echoBoss.hp = Number(d.echoBoss.hp) || echoBoss.max;
+      echoBoss.x = Number(d.echoBoss.x) || 91 * T;
+      echoBoss.y = Number(d.echoBoss.y) || 89 * T;
+      echoBoss.active = !!d.echoBoss.active;
+    } else {
+      echoBoss.active = sideQuestState.echoes === 1;
+    }
+    if (echoDone) { echoBoss.alive = false; echoBoss.active = false; }
+    if (sideQuestState.echoes === 1 && echoBoss.alive) echoBoss.active = true;
     buildHeroSprites();
     started = true;
     mode = 'world';
@@ -1466,6 +1691,7 @@ function resetGame() {
   artifact = null; artifactEquipped = false; relicInventory = [];
   day = 1; dayClock = 0; bossCd = 0; shake = 0; flash = 0;
   boss.alive = true; boss.hp = boss.max; boss.x = 120; boss.y = 51;
+  echoBoss.alive = true; echoBoss.hp = echoBoss.max; echoBoss.x = 91 * T; echoBoss.y = 89 * T; echoBoss.active = false; echoBoss.touchCd = 0;
   mobs.forEach(m => { m.alive = true; m.hp = m.max; });
   dungeonMobs.forEach(m => { m.alive = true; m.hp = m.max; });
   buildHeroSprites();
@@ -1593,12 +1819,13 @@ function nearby() {
       { ...shrine, kind: 'shrine' },
       { ...gate, kind: 'gate' },
       ...questNodes.filter(node => !node.collected && sideQuestState[node.questId] === 1).map(ref => ({ ...ref, ref, kind: 'questNode' })),
-      ...mobs.filter(m => m.alive).map(m => ({ ...m, ref: m, kind: 'mob' }))
+      ...mobs.filter(m => m.alive).map(m => ({ ...m, ref: m, kind: 'mob' })),
+      ...(echoBoss.active && echoBoss.alive ? [{ ...echoBoss, ref: echoBoss, kind: 'echoBoss' }] : [])
     ];
   }
   return candidates
     .map(o => ({ ...o, d: Math.hypot(hero.x - o.x, hero.y - o.y) }))
-    .filter(o => o.d < (o.kind === 'boss' ? 24 : 17))
+    .filter(o => o.d < (o.kind === 'boss' || o.kind === 'echoBoss' ? 24 : 17))
     .sort((a, b) => a.d - b.d)[0];
 }
 function setAction(type, seconds, target) {
@@ -1655,6 +1882,11 @@ function questTarget() {
   if (quest === 1) return chestOpen ? { x: npc.x, y: npc.y, label: 'Maelis' } : { x: chest.x, y: chest.y, label: 'Hoja de luna' };
   if (quest === 2) return { x: gate.x, y: gate.y, label: 'Catacumbas' };
   if (quest === 3) return hero.inventory['🔷'] ? { x: npc.x, y: npc.y, label: 'Maelis' } : { x: gate.x, y: gate.y, label: 'Catacumbas' };
+  if (sideQuestState.echoes === 1) {
+    if (echoBoss.alive && echoBoss.active) return { x: echoBoss.x, y: echoBoss.y, label: 'Eco del Guardián' };
+    const sable = townNpcs.find(n => n.id === 'sable');
+    if (sable) return { x: sable.x, y: sable.y, label: 'Sable' };
+  }
   const active = sideQuestDefs.find(q => sideQuestState[q.id] === 1);
   if (active) {
     if (sideQuestProgress[active.id] >= active.target) {
@@ -1663,30 +1895,108 @@ function questTarget() {
     }
     if (active.enemy) {
       const m = mobs.find(m => m.alive && m.type === active.enemy);
-      if (m) return { x: m.x, y: m.y, label: active.enemy === 'wolf' ? 'Lobo' : 'Limo' };
+      if (m) return { x: m.x, y: m.y, label: active.enemy === 'wolf' ? 'Lobo' : active.enemy === 'moth' ? 'Polilla' : 'Limo' };
     } else {
       const node = questNodes.find(n => n.questId === active.id && !n.collected);
-      if (node) return { x: node.x, y: node.y, label: active.id === 'herbs' ? 'Flor' : active.id === 'blacksmith' ? 'Hierro' : 'Mojón' };
+      if (node) return { x: node.x, y: node.y, label: active.id === 'herbs' ? 'Flor' : active.id === 'blacksmith' ? 'Hierro' : active.id === 'toys' ? 'Juguete' : active.id === 'wood' ? 'Tronco' : 'Mojón' };
     }
   }
   if (quest >= 4) {
-    const next = sideQuestDefs.find(q => sideQuestState[q.id] !== 2);
+    if ((sideQuestState.echoes || 0) === 0) {
+      const sable = townNpcs.find(n => n.id === 'sable');
+      if (sable) return { x: sable.x, y: sable.y, label: 'Sable' };
+    }
+    if (bounty.active) {
+      const info = BOUNTY_TYPES.find(b => b.type === bounty.type) || BOUNTY_TYPES[0];
+      if (bounty.progress >= bounty.target) {
+        const runa = townNpcs.find(n => n.id === 'runa');
+        if (runa) return { x: runa.x, y: runa.y, label: 'Runa' };
+      } else {
+        const m = mobs.find(m => m.alive && m.type === bounty.type);
+        if (m) return { x: m.x, y: m.y, label: info.label };
+        const runa = townNpcs.find(n => n.id === 'runa');
+        if (runa) return { x: runa.x, y: runa.y, label: 'Runa' };
+      }
+    }
+    const next = sideQuestDefs.find(q => q.id !== 'echoes' && sideQuestState[q.id] !== 2);
     const person = next && townNpcs.find(n => n.id === next.npc);
     if (person) return { x: person.x, y: person.y, label: person.name.split(',')[0] };
   }
   return null;
 }
 
+function interactBounty(person) {
+  if (quest < 4) {
+    showDialog(person.name, 'El brezal aún duerme bajo la historia antigua. Cuando el guardián caiga, volveré a ofrecer cacerías a quien tenga valor.', person.key, [['Volver', () => overlay(null)]]);
+    return;
+  }
+  if (bounty.active) {
+    const info = BOUNTY_TYPES.find(b => b.type === bounty.type) || BOUNTY_TYPES[0];
+    if (bounty.progress >= bounty.target) {
+      const gold = 20 + bounty.tier * 10;
+      const xp = 24 + bounty.tier * 12;
+      hero.gold += gold;
+      hero.xp += xp;
+      bounty.tier++;
+      const completed = bounty.tier;
+      bounty.active = false;
+      bounty.progress = 0;
+      bounty.target = 5 + bounty.tier;
+      while (hero.xp >= hero.level * 20) {
+        hero.xp -= hero.level * 20;
+        hero.level++; hero.maxHp += 3; hero.hp = hero.maxHp; hero.damage++;
+        addFloater(hero.x, hero.y - 26, `¡NIVEL ${hero.level}!`, '#ffe9a8');
+      }
+      updateUI(); saveGame(true);
+      showDialog(person.name, `Ronda ${completed} completada. El brezal está más tranquilo y tu nombre corre entre los cazadores. Toma ${gold} de oro y ${xp} de experiencia.`, person.key, [['Gracias, Runa', () => overlay(null)]]);
+      toast(`Ronda completada · +${gold} oro · +${xp} XP`);
+      return;
+    }
+    showDialog(person.name, `Ronda ${bounty.tier + 1}: llevas ${bounty.progress} de ${bounty.target} ${info.name}. El rastro sigue fresco; no pierdas el ritmo.`, person.key, [['Seguir cazando', () => overlay(null)]]);
+    return;
+  }
+  const info = BOUNTY_TYPES[bounty.tier % BOUNTY_TYPES.length];
+  const target = 5 + bounty.tier;
+  showDialog(person.name, `Ronda ${bounty.tier + 1}: el brezal cría ${info.label}. Caza ${target} y volveré a medir tu valor. Cada ronda paga mejor que la anterior.`, person.key, [
+    ['Aceptar ronda', () => {
+      bounty.active = true;
+      bounty.type = info.type;
+      bounty.progress = 0;
+      bounty.target = target;
+      mobs.filter(m => m.type === info.type).forEach(m => { m.alive = true; m.hp = m.max; m.touchCd = 0; });
+      updateUI(); saveGame(true); overlay(null);
+      toast(`Ronda ${bounty.tier + 1} · ${info.label}`);
+    }],
+    ['Ahora no', () => overlay(null)]
+  ]);
+}
+
 function interactTownNpc(person) {
+  setAction('talk', 9999, person);
+  if (person.id === 'runa') { interactBounty(person); return; }
   const contract = sideQuestDefs.find(q => q.id === person.quest);
   if (!contract) return;
+  if (person.id === 'sable' && quest < 4 && (sideQuestState.echoes || 0) === 0) {
+    showDialog(person.name, 'El brezal susurra tu nombre, pero aún no es tu momento. Termina lo que empezaste en las catacumbas y vuelve entonces. Yo sabré esperar.', person.key, [['Entendido', () => overlay(null)]]);
+    return;
+  }
+  if (contract.chapter === 2 && quest < 4) {
+    showDialog(person.name, 'El brezal guarda sus historias para después de la tormenta. Vuelve cuando el guardián de las catacumbas caiga y las raíces vuelvan a cantar.', person.key, [['Volver más tarde', () => overlay(null)]]);
+    return;
+  }
   const state = sideQuestState[contract.id] || 0;
   const progress = sideQuestProgress[contract.id] || 0;
-  setAction('talk', 9999, person);
   if (state === 0) {
     showDialog(person.name, contract.intro, person.key, [
       ['Aceptar encargo', () => {
         sideQuestState[contract.id] = 1;
+        if (contract.id === 'echoes') {
+          echoBoss.active = true;
+          echoBoss.alive = true;
+          echoBoss.hp = echoBoss.max;
+          echoBoss.touchCd = 0;
+          toast('El Eco del Guardián despierta en el sureste del brezal.');
+        }
         updateUI(); saveGame(true); overlay(null);
         toast(`Nuevo encargo: ${contract.title}`);
       }],
@@ -1699,19 +2009,34 @@ function interactTownNpc(person) {
     hero.xp += contract.rewardXp;
     hero.gold += contract.rewardGold;
     if (contract.id === 'herbs') hero.inventory['🧪'] = (hero.inventory['🧪'] || 0) + 2;
+    if (contract.id === 'moths') { hero.inventory['🧪'] = (hero.inventory['🧪'] || 0) + 2; hero.damage += 1; }
     if (contract.id === 'blacksmith') hero.damage += 1;
     if (contract.id === 'cartography') hero.speed += 2;
+    if (contract.id === 'toys') hero.inventory['🍎'] = (hero.inventory['🍎'] || 0) + 2;
+    if (contract.id === 'wood') { hero.maxHp += 3; hero.hp = hero.maxHp; }
+    if (contract.id === 'echoes') { echoDone = true; echoBoss.active = false; echoBoss.alive = false; }
     while (hero.xp >= hero.level * 20) {
       hero.xp -= hero.level * 20;
       hero.level++; hero.maxHp += 3; hero.hp = hero.maxHp; hero.damage++;
     }
     updateUI(); saveGame(true);
-    showDialog(person.name, contract.done, person.key, [['Gracias', () => overlay(null)]]);
+    if (contract.id === 'echoes') {
+      showDialog(person.name, contract.done, person.key, [['Cerrar el capítulo', () => { overlay(null); showEnding(2); }]]);
+    } else {
+      showDialog(person.name, contract.done, person.key, [['Gracias', () => overlay(null)]]);
+    }
     toast(`Encargo completado · +${contract.rewardGold} oro · +${contract.rewardXp} XP`);
     return;
   }
   if (state === 1) {
-    showDialog(person.name, `${contract.title}: llevas ${progress} de ${contract.target} ${contract.noun}. ${person.id === 'ivo' ? 'Escucha los aullidos del brezal.' : person.id === 'kumo' ? 'Procura no dañar los brotes.' : 'El sendero del sur te acercará a lo que buscas.'}`, person.key, [['Seguiré buscando', () => overlay(null)]]);
+    const hint = person.id === 'ivo' ? 'Escucha los aullidos del brezal.'
+      : person.id === 'kumo' ? 'Procura no dañar los brotes.'
+        : person.id === 'sable' ? 'El eco late en el extremo sureste, donde el musgo se vuelve plata.'
+          : person.id === 'timo' ? 'Los juguetes brillan entre el musgo, cerca del sendero.'
+            : person.id === 'yara' ? 'Las polillas vuelan donde la luz de la luna toca las hojas.'
+              : person.id === 'bruno' ? 'Busca troncos secos junto a las rocas del brezal.'
+                : 'El sendero del sur te acercará a lo que buscas.';
+    showDialog(person.name, `${contract.title}: llevas ${progress} de ${contract.target} ${contract.noun}. ${hint}`, person.key, [['Seguiré buscando', () => overlay(null)]]);
     return;
   }
   const after = {
@@ -1719,7 +2044,11 @@ function interactTownNpc(person) {
     oren: 'La fragua sigue encendida. Si oyes el martillo, ya sabes dónde encontrarme.',
     nara: 'Las flores vuelven a abrirse. El río también recuerda tu bondad.',
     ivo: 'Cada camino merece una canción; el tuyo ya tiene estribillo.',
-    kumo: 'El bosque está en calma. Aun así, mantén los ojos abiertos.'
+    kumo: 'El bosque está en calma. Aun así, mantén los ojos abiertos.',
+    sable: 'El brezal está en paz, pero no dormido. Yo seguiré vigilando desde la linde.',
+    timo: 'Mi madre dice que ahora soy un explorador de verdad. ¡Gracias por no dejar que me perdiera!',
+    yara: 'Las polillas vuelven a brillar. El brezal tiene memoria, y tú ya formas parte de ella.',
+    bruno: 'La carreta ya rueda. Si necesitas leña o un hombro fuerte, ya sabes dónde estoy.'
   }[person.id];
   showDialog(person.name, after, person.key, [['Hasta luego', () => overlay(null)]]);
 }
@@ -1834,7 +2163,7 @@ function attack(target) {
   if (!started || hero.atkCd > 0) return;
   hero.atkCd = 0.42;
   const t = target || nearby();
-  if (t && (t.kind === 'mob' || t.kind === 'boss')) {
+  if (t && (t.kind === 'mob' || t.kind === 'boss' || t.kind === 'echoBoss')) {
     hero.facing = dir8(t.x - hero.x, t.y - hero.y);
     setAction('attack', 0.38, t);
     hitTarget(t.ref || t);
@@ -1856,7 +2185,18 @@ function hitTarget(t) {
   rumble(0.25, 0.5, 70);
   if (t.hp <= 0) {
     t.alive = false;
-    if (t === boss) {
+    if (t === echoBoss) {
+      echoDone = true;
+      echoBoss.active = false;
+      sideQuestProgress.echoes = 1;
+      hero.xp += 70;
+      hero.gold += 60;
+      addRelic(ECHO_RELIC);
+      spawnBurst(echoBoss.x, echoBoss.y - 16, '#a8ffe9', 60);
+      whiteFlash = 0.5;
+      toast('¡Eco del Guardián vencido! Habla con Sable para cerrar el capítulo.');
+      saveGame(true);
+    } else if (t === boss) {
       hero.xp += 35;
       hero.gold += 40;
       hero.inventory['🔷'] = 1;
@@ -1875,6 +2215,11 @@ function hitTarget(t) {
         if (contract.enemy !== t.type || sideQuestState[contract.id] !== 1) continue;
         sideQuestProgress[contract.id] = Math.min(contract.target, (sideQuestProgress[contract.id] || 0) + 1);
         toast(`${contract.title} · ${sideQuestProgress[contract.id]}/${contract.target}`);
+        saveGame(true);
+      }
+      if (bounty.active && bounty.type === t.type) {
+        bounty.progress = Math.min(bounty.target, bounty.progress + 1);
+        toast(`Ronda del brezal · ${bounty.progress}/${bounty.target}`);
         saveGame(true);
       }
     }
@@ -1947,6 +2292,23 @@ function updateBoss(dt) {
   if (d < 24 && bossCd <= 0) {
     damagePlayer(3);
     bossCd = 1.5;
+  }
+}
+function updateEchoBoss(dt) {
+  if (mode !== 'world' || !echoBoss.active || !echoBoss.alive) return;
+  echoBoss.touchCd = Math.max(0, (echoBoss.touchCd || 0) - dt);
+  const d = Math.hypot(hero.x - echoBoss.x, hero.y - echoBoss.y);
+  if (d < 150 && d > 26) {
+    const nx = echoBoss.x + (hero.x - echoBoss.x) / d * 13 * dt;
+    const ny = echoBoss.y + (hero.y - echoBoss.y) / d * 13 * dt;
+    if (!blocked(nx, echoBoss.y)) echoBoss.x = nx;
+    if (!blocked(echoBoss.x, ny)) echoBoss.y = ny;
+    echoBoss.x = clamp(echoBoss.x, 12, W * T - 12);
+    echoBoss.y = clamp(echoBoss.y, 12, H * T - 12);
+  }
+  if (d < 26 && echoBoss.touchCd <= 0) {
+    damagePlayer(2);
+    echoBoss.touchCd = 1.35;
   }
 }
 
@@ -2191,10 +2553,12 @@ function drawTownNpc(person) {
   drawCharacterSprite(frames[idx], person.x, person.y + bob);
   if (talking) speechBubble(person.x, person.y - 27);
   else if (Math.hypot(hero.x - person.x, hero.y - person.y) < 22 && started) {
+    let mark = sideQuestState[person.quest] === 2 ? '✓' : '!';
+    if (person.id === 'runa') mark = quest < 4 ? '·' : bounty.active ? (bounty.progress >= bounty.target ? '✓' : '◈') : '!';
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     glow(person.x, person.y - 31, 8, person.palette.accent || '#ffe9a0', 0.2);
-    text(sideQuestState[person.quest] === 2 ? '✓' : '!', person.x - 1, person.y - 28, '#fff0a8', 7);
+    text(mark, person.x - 1, person.y - 28, '#fff0a8', 7);
     ctx.restore();
   }
 }
@@ -2310,6 +2674,26 @@ function drawBoss() {
   ctx.fillStyle = '#f3b6a4';
   ctx.fillRect(boss.x - 24, boss.y - 41, Math.max(1, 48 * boss.hp / boss.max), 1);
   text('GUARDIÁN DE RAÍZ', boss.x - 21, boss.y - 45, '#ffe4b2', 5);
+}
+function drawEchoBoss() {
+  const d = Math.hypot(hero.x - echoBoss.x, hero.y - echoBoss.y);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const pulse = 0.18 + Math.sin(clock * 2.6) * 0.05 + (echoBoss.hp < echoBoss.max ? 0.12 : 0);
+  glow(echoBoss.x, echoBoss.y - 16, 64, '#57d9bd', pulse);
+  if (d < 120) glow(echoBoss.x, echoBoss.y - 16, 30, '#a8ffe9', 0.16);
+  ctx.restore();
+  const img = ECHO_SPRITES[Math.floor(clock * 2.4) % 2];
+  const bob = Math.sin(clock * 1.7) * 1.6;
+  shadow(echoBoss.x, echoBoss.y + 18, 22, 4.6, 0.44);
+  ctx.drawImage(img, Math.round(echoBoss.x - 27), Math.round(echoBoss.y - 35 + bob), 54, 54);
+  ctx.fillStyle = '#172b2a';
+  ctx.fillRect(echoBoss.x - 26, echoBoss.y - 46, 52, 4);
+  ctx.fillStyle = '#57d9bd';
+  ctx.fillRect(echoBoss.x - 26, echoBoss.y - 46, Math.max(1, 52 * echoBoss.hp / echoBoss.max), 4);
+  ctx.fillStyle = '#b9fff0';
+  ctx.fillRect(echoBoss.x - 26, echoBoss.y - 46, Math.max(1, 52 * echoBoss.hp / echoBoss.max), 1);
+  text('ECO DEL GUARDIÁN', echoBoss.x - 24, echoBoss.y - 50, '#c8fff2', 5);
 }
 function drawFloaters() {
   ctx.save();
@@ -2428,6 +2812,7 @@ function drawWorld() {
       : n.kind === 'chest' || n.kind === 'chest2' ? `${talk} · abrir cofre`
       : n.kind === 'gate' ? `${talk} · entrar a la mazmorra`
       : n.kind === 'shrine' ? `${talk} · orar en el altar`
+      : n.kind === 'echoBoss' ? `${act} · atacar al eco`
       : `${act} · atacar`;
   }
 
@@ -2480,6 +2865,7 @@ function drawWorld() {
     if (!node.collected && sideQuestState[node.questId] === 1) list.push({ y: node.y + 3, fn: () => drawQuestNode(node) });
   });
   mobs.forEach(m => { if (m.alive) list.push({ y: m.y + 4, fn: () => drawMob(m) }); });
+  if (echoBoss.active && echoBoss.alive) list.push({ y: echoBoss.y + 10, fn: drawEchoBoss });
   list.push({ y: hero.y + 4, fn: drawHero });
   list.sort((a, b) => a.y - b.y);
   list.forEach(o => o.fn());
@@ -3077,6 +3463,7 @@ function frame(now) {
       move(dt);
       updateEnemies(dt);
       updateBoss(dt);
+      updateEchoBoss(dt);
     } else {
       moving = false;
     }
@@ -3197,9 +3584,13 @@ function boot() {
   window.addEventListener('blur', () => { keys = {}; pad.left = pad.right = pad.up = pad.down = pad.run = false; });
 
   window.__luminaDebug = {
-    treeTile, pathTile, hero, npc, npc2, townNpcs, chest, chest2, gate, shrine, mobs, boss, cam,
+    treeTile, pathTile, hero, npc, npc2, townNpcs, chest, chest2, gate, shrine, mobs, boss, echoBoss, cam,
+    interact, attack, hitTarget, changeMode, saveGame, loadGame,
+    progress: () => ({ quest, dungeonDone, chestOpen, chest2Open, mode }),
     nodes: () => questNodes,
     sideQuests: () => ({ state: { ...sideQuestState }, progress: { ...sideQuestProgress } }),
+    bounty: () => ({ ...bounty }),
+    echo: () => ({ done: echoDone, active: echoBoss.active, alive: echoBoss.alive, hp: echoBoss.hp }),
     running: () => isRunning,
     nearby: () => nearby(),
     treeSprite: () => TREES.green[0].toDataURL(),
@@ -3217,7 +3608,7 @@ function boot() {
     },
     sheet: () => {
       const dirs = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
-      const states = ['idle', 'walk', 'talk', 'interact', 'attack', 'hurt'];
+      const states = ['idle', 'walk', 'run', 'talk', 'interact', 'attack', 'hurt'];
       const cw = 34, ch = 50;
       const c = document.createElement('canvas');
       c.width = 13 * cw; c.height = dirs.length * ch;
