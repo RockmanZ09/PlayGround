@@ -204,6 +204,7 @@ function makePalette(role, cloakColor) {
   const mage = role === 'Maga', ranger = role === 'Exploradora';
   const cloak = cloakColor || '#88b978';
   const skin = '#f6d2b0';
+  const style = mage ? 'mage' : ranger ? 'ranger' : 'guardian';
   const pal = {
     outline: '#241c22',
     skin, skinLight: shade(skin, 0.2), skinShade: shade(skin, -0.18),
@@ -219,6 +220,10 @@ function makePalette(role, cloakColor) {
     leather: '#7a5034', leatherDark: '#4a2e20', boots: '#3b2a26',
     metal: '#cfd9d6', metalDark: '#7c8b8c',
     gold: '#e7c66c', goldLight: '#f7e3a4', goldDark: '#a8843a',
+    accent: mage ? '#b9a2e8' : ranger ? '#d6a266' : '#a9c7ad',
+    accentLight: mage ? '#eadcff' : ranger ? '#f4d197' : '#e2f0d5',
+    accentDark: mage ? '#655080' : ranger ? '#72502f' : '#506d57',
+    style,
     eye: '#2a2834', mouth: '#8b4e4a', white: '#fff8e8',
     cloak, cloakDark: shade(cloak, -0.35), cloakShade: shade(cloak, -0.18), cloakLight: shade(cloak, 0.22),
     rim: '#ffe6a8', longHair: true
@@ -237,6 +242,7 @@ const npcPalette = {
 };
 const spiritPalette = {
   ...makePalette('Maga', '#4f8f86'),
+  style: 'spirit',
   hair: '#d5efe4', hairLight: '#f0fffa', hairDark: '#8fb8ab', hairMid: '#b3d8cc',
   skin: '#e6f6ef', skinLight: '#f6fffb', skinShade: '#b8d6c9',
   iris: '#4fe0c8', blush: '#9fdccd', lip: '#7fc4b7',
@@ -256,25 +262,30 @@ function drawCape(g, pal, dir, state, f, cx) {
   const side = dir.includes('E') ? 1 : dir.includes('W') ? -1 : 0;
   const sway = state === 'walk' ? [0, 1, 0, -1][f] : 0;
   if (back) {
-    poly(g, [[cx - 8, 19], [cx + 8, 19], [cx + 10, 33 + sway], [cx + 5, 39], [cx, 36], [cx - 5, 39], [cx - 10, 33 + sway]], pal.cloakDark);
-    poly(g, [[cx - 6, 20], [cx + 6, 20], [cx + 7, 33], [cx, 37], [cx - 7, 33]], pal.cloak);
-    p(g, cx - 5, 21, 2, 13, pal.cloakLight);
+    poly(g, [[cx - 7, 19], [cx + 7, 19], [cx + 9, 26], [cx + 10, 33 + sway], [cx + 5, 39], [cx + 2, 36], [cx, 40], [cx - 3, 36], [cx - 5, 39], [cx - 10, 33 + sway], [cx - 9, 26]], pal.cloakDark);
+    poly(g, [[cx - 6, 20], [cx + 6, 20], [cx + 7, 27], [cx + 8, 33], [cx + 4, 37], [cx + 1, 35], [cx, 38], [cx - 2, 35], [cx - 4, 37], [cx - 8, 33], [cx - 7, 27]], pal.cloak);
+    p(g, cx - 5, 21, 2, 12, pal.cloakLight);
     p(g, cx + 3, 22, 2, 11, pal.cloakShade);
+    p(g, cx - 1, 24, 2, 8, pal.accentDark || pal.cloakDark);
+    p(g, cx - 1, 25, 1, 6, pal.accent || pal.cloakLight);
+    p(g, cx - 2, 35, 2, 1, pal.gold);
+    p(g, cx + 1, 35, 2, 1, pal.gold);
   } else if (side) {
     const bx = cx - side * 6;
-    poly(g, [[bx, 21], [bx - side * 5, 24], [bx - side * 4, 35 + sway], [bx + side * 2, 33]], pal.cloakDark);
-    poly(g, [[bx, 22], [bx - side * 3, 25], [bx - side * 2, 33], [bx + side * 2, 32]], pal.cloak);
-    p(g, cx - 8, 21, 3, 14, pal.cloakDark);
-    p(g, cx + 5, 21, 3, 14, pal.cloakDark);
-    p(g, cx - 7, 22, 2, 12, pal.cloak);
-    p(g, cx + 6, 22, 2, 12, pal.cloak);
+    poly(g, [[bx, 20], [bx - side * 4, 22], [bx - side * 7, 28], [bx - side * 5, 35 + sway], [bx - side * 2, 39], [bx + side * 2, 35], [bx + side * 3, 26]], pal.cloakDark);
+    poly(g, [[bx, 21], [bx - side * 3, 23], [bx - side * 5, 29], [bx - side * 4, 34 + sway], [bx - side * 1, 37], [bx + side * 2, 34], [bx + side * 2, 26]], pal.cloak);
+    p(g, bx - side * 2, 24, 1, 10, pal.cloakLight);
+    p(g, bx + side * 1, 25, 1, 9, pal.cloakShade);
+    p(g, bx - side * 3, 35 + sway, 2, 1, pal.gold);
   } else {
-    poly(g, [[cx - 8, 20], [cx - 3, 20], [cx - 4, 35], [cx - 8, 38]], pal.cloakDark);
-    poly(g, [[cx + 3, 20], [cx + 8, 20], [cx + 8, 38], [cx + 4, 35]], pal.cloakDark);
-    poly(g, [[cx - 7, 21], [cx - 3, 21], [cx - 4, 33], [cx - 7, 36]], pal.cloak);
-    poly(g, [[cx + 3, 21], [cx + 7, 21], [cx + 7, 36], [cx + 4, 33]], pal.cloak);
+    poly(g, [[cx - 8, 20], [cx - 3, 20], [cx - 4, 34 + sway], [cx - 7, 39], [cx - 10, 35]], pal.cloakDark);
+    poly(g, [[cx + 3, 20], [cx + 8, 20], [cx + 10, 35], [cx + 7, 39], [cx + 4, 34 + sway]], pal.cloakDark);
+    poly(g, [[cx - 7, 21], [cx - 3, 21], [cx - 4, 33 + sway], [cx - 7, 36], [cx - 9, 34]], pal.cloak);
+    poly(g, [[cx + 3, 21], [cx + 7, 21], [cx + 9, 34], [cx + 7, 36], [cx + 4, 33 + sway]], pal.cloak);
     p(g, cx - 7, 22, 2, 11, pal.cloakLight);
     p(g, cx + 5, 22, 2, 11, pal.cloakLight);
+    p(g, cx - 8, 34, 2, 1, pal.gold);
+    p(g, cx + 6, 34, 2, 1, pal.gold);
   }
 }
 
@@ -379,6 +390,23 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, cx - 4, 24, 1, 4, pal.leatherDark);
     p(g, cx - 3, 24, 1, 1, goldL);
     p(g, cx - 3, 26, 1, 1, goldL);
+    if (pal.style === 'mage') {
+      p(g, cx, 24, 1, 3, pal.accentLight);
+      p(g, cx - 1, 25, 3, 1, pal.accent);
+      p(g, cx, 24, 1, 1, pal.white);
+      p(g, cx - 3, 27, 1, 2, pal.gold);
+      p(g, cx + 2, 27, 1, 2, pal.gold);
+    } else if (pal.style === 'ranger') {
+      p(g, cx - 1, 23, 3, 1, pal.accentLight);
+      p(g, cx - 2, 24, 4, 1, pal.accent);
+      p(g, cx - 1, 25, 3, 1, pal.accentDark);
+      p(g, cx, 23, 1, 4, pal.gold);
+    } else {
+      p(g, cx - 2, 23, 1, 3, pal.accentLight);
+      p(g, cx + 1, 23, 1, 3, pal.accentLight);
+      p(g, cx - 1, 24, 3, 2, pal.accent);
+      p(g, cx, 24, 1, 1, pal.goldLight);
+    }
   }
 
   /* belt, buckle and pouch */
@@ -411,6 +439,8 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, cx + 5, 20, 2, 1, pal.metal);
     p(g, cx - 8, 22, 4, 1, goldD);
     p(g, cx + 4, 22, 4, 1, goldD);
+    p(g, cx - 7, 21, 2, 1, pal.goldLight);
+    p(g, cx + 5, 21, 2, 1, pal.goldLight);
   }
 
   /* robe */
@@ -428,6 +458,10 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, cx - 5, 29, 10, 2, pal.leatherDark);
     p(g, cx - 5, 29, 10, 1, pal.leather);
     p(g, cx - 1, 29, 2, 2, pal.gold);
+    p(g, cx - 6, 38, 3, 1, pal.gold);
+    p(g, cx + 3, 38, 3, 1, pal.gold);
+    p(g, cx - 5, 39, 2, 1, pal.robeLight);
+    p(g, cx + 3, 39, 2, 1, pal.robeShade);
   }
 
   /* back cloak */
@@ -452,6 +486,8 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, cx + 6, armY + 8 + arm, 3, 3, pal.skin);
     p(g, cx + 6, armY + 8 + arm, 3, 1, skinL);
     p(g, cx + 6, armY + 6 + arm, 3, 1, pal.leather);
+    p(g, cx - 9, armY + 6 - arm, 3, 1, pal.goldDark);
+    p(g, cx + 6, armY + 6 + arm, 3, 1, pal.goldDark);
     if (talk) {
       p(g, cx + 7, armY - 5, 3, 7, pal.tunic);
       p(g, cx + 7, armY - 7, 3, 3, pal.skin);
@@ -479,6 +515,7 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, ax, armY + 8 + arm, 3, 3, pal.skin);
     p(g, ax, armY + 8 + arm, 3, 1, skinL);
     p(g, ax, armY + 6 + arm, 3, 1, pal.leather);
+    p(g, ax, armY + 6 + arm, 3, 1, pal.goldDark);
     if (talk) {
       const hx2 = cx + side * 4;
       p(g, hx2 - 1, armY - 3, 3, 7, pal.tunic);
@@ -574,6 +611,38 @@ function drawCharFrame(g, dir, state, f, pal, opt = {}) {
     p(g, hx, hy + 3, 1, 1, goldL);
     p(g, hx - 6, hy + 8, 1, 1, pal.gold);
     p(g, hx + 5, hy + 8, 1, 1, pal.gold);
+
+    /* signature headpieces make each vocation readable at a glance */
+    if (pal.style === 'mage') {
+      p(g, hx - 4, hy + 2, 8, 1, pal.accentDark);
+      p(g, hx - 2, hy + 1, 4, 1, pal.gold);
+      p(g, hx - 1, hy, 2, 2, pal.accentLight);
+      p(g, hx, hy, 1, 1, pal.white);
+      p(g, hx - 5, hy + 3, 1, 2, pal.gold);
+      p(g, hx + 4, hy + 3, 1, 2, pal.gold);
+    } else if (pal.style === 'ranger') {
+      poly(g, [[hx + 3, hy + 1], [hx + 8, hy - 2], [hx + 7, hy + 2], [hx + 4, hy + 4]], pal.accentDark);
+      p(g, hx + 5, hy, 2, 1, pal.accentLight);
+      p(g, hx - 5, hy + 3, 1, 3, pal.gold);
+      p(g, hx + 4, hy + 3, 1, 2, pal.gold);
+    } else if (pal.style === 'guardian') {
+      p(g, hx - 4, hy + 1, 8, 1, pal.goldDark);
+      p(g, hx - 3, hy, 6, 1, pal.goldLight);
+      p(g, hx, hy - 1, 2, 2, pal.accentLight);
+      p(g, hx, hy - 1, 1, 1, pal.white);
+    } else if (pal.style === 'spirit') {
+      p(g, hx - 4, hy + 1, 8, 1, pal.accentDark);
+      p(g, hx - 2, hy - 1, 1, 2, pal.accentLight);
+      p(g, hx + 1, hy - 2, 1, 3, pal.white);
+      p(g, hx + 3, hy - 1, 1, 2, pal.accentLight);
+      p(g, hx, hy, 1, 1, pal.white);
+    }
+
+    /* loose, highlighted locks break up the solid helmet-like fringe */
+    p(g, hx - 6, hy + 5, 1, 3, hairMid);
+    p(g, hx - 5, hy + 7, 1, 2, pal.hairLight);
+    p(g, hx + 5, hy + 5, 1, 3, pal.hairDark);
+    p(g, hx + 4, hy + 7, 1, 2, hairMid);
 
     /* redraw the mouth over the fringe: two readable phoneme frames */
     if (talk) {
@@ -1885,7 +1954,7 @@ function drawNPC(x, y) {
   const frames = npcSprites[npc.facing][state];
   const idx = Math.floor(clock * (talking ? 5 : 2)) % frames.length;
   shadow(x, y + 4, 7, 2.2, 0.32);
-  ctx.drawImage(frames[idx], Math.round(x - 8), Math.round(y - 20), 16, 24);
+  drawCharacterSprite(frames[idx], x, y);
   if (talking) speechBubble(x, y - 24);
   else if (Math.hypot(hero.x - x, hero.y - y) < 20 && started && quest === 0) {
     ctx.save();
@@ -1909,7 +1978,7 @@ function drawNPC2(x, y) {
   shadow(x, y + 5, 6, 2, 0.24);
   ctx.save();
   ctx.globalAlpha = 0.95;
-  ctx.drawImage(frames[idx], Math.round(x - 8), Math.round(y - 20 + float), 16, 24);
+  drawCharacterSprite(frames[idx], x, y + float);
   ctx.restore();
   if (talking) speechBubble(x, y - 24 + float);
   else {
@@ -1953,8 +2022,12 @@ function drawHero() {
     glow(hero.x, hero.y - 8, 18, '#e7f0b2', 0.16);
     ctx.restore();
   }
-  ctx.drawImage(img, Math.round(hero.x) - 8, Math.round(hero.y) - 20, 16, 24);
+  drawCharacterSprite(img, hero.x, hero.y);
   if (hero.attack > 0) drawSlash();
+}
+function drawCharacterSprite(img, x, y) {
+  // Preserve the sprite's 2:3 pixel-art ratio while giving silhouettes room to read.
+  ctx.drawImage(img, Math.round(x) - 9, Math.round(y) - 23, 18, 27);
 }
 function drawSlash() {
   const v = DIRV[hero.facing] || DIRV.S;
